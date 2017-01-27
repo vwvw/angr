@@ -1659,9 +1659,9 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                         if sec.vaddr not in self.memory_data:
                             self.memory_data[sec.vaddr] = MemoryData(sec.vaddr, 0, 'unknown', None, None, None, None)
 
-        r = True
-        while r:
-            r = self._tidy_data_references()
+            r = True
+            while r:
+                r = self._tidy_data_references()
 
         CFGBase._post_analysis(self)
 

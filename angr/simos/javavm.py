@@ -16,9 +16,6 @@ class SimJavaVM(SimOS):
             kwargs['arch'] = self.arch
         if kwargs.get('os_name', None) is None:
             kwargs['os_name'] = self.name
-        if kwargs.get('project', None) is None:
-            kwargs['project'] = self.project
-
 
         state = SimState(**kwargs)
 

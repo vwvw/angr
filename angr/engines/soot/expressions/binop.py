@@ -1,6 +1,5 @@
 
 import operator
-
 from .base import SimSootExpr
 
 

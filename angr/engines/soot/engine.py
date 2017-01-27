@@ -24,47 +24,28 @@ class SimEngineSoot(SimEngine):
     """
 
     def __init__(self, project=None, **kwargs):
-        super(SimEngineSoot, self).__init__(**kwargs)
+        super(SimEngineSoot, self).__init__()
+
         self.project = project
 
-    # FIXME where is this method used?
-    # from ...errors import SimTranslationError
-    # from cle import CLEError
-    # def lift(self, addr=None, the_binary=None, **kwargs):
-    #     assert isinstance(addr, SootAddressDescriptor)
+    def lift(self, addr=None, the_binary=None, **kwargs):
+        assert isinstance(addr, SootAddressDescriptor)
 
-    #     method, stmt_idx = addr.method, addr.stmt_idx
+        method, label = addr.method, addr.stmt_idx
 
-    #     try:
-    #         method = the_binary.get_method(method)
-    #     except CLEError as ex:
-    #         raise SimTranslationError("CLE error: " + ex.message)
+        try:
+            methods = the_binary.get_method(method)
+            method = next(methods)
+        except CLEError as ex:
+            raise SimTranslationError("CLE error: " + ex.message)
 
-    #     if stmt_idx is None:
-    #         return method.blocks[0] if method.blocks else None
-    #     else:
-    #         #try:
-    #         #    _, block = method.block_by_label.floor_item(stmt_idx)
-    #         #except KeyError:
-    #         #    return None
-    #         #return block
-    #         # TODO: Re-enable the above code once bintrees are used
-
-    #         # FIXME: stmt_idx does not index from the start of the method but from the start
-    #         #        of the block therefore it always returns the block with label 0 indipendently
-    #         #        of where we are
-    #         # block = method.block_by_label.get(stmt_idx, None)
-    #         # if block is not None:
-    #         #     return block
-    #         # Slow path
-    #         for block_idx, block in enumerate(method.blocks):
-    #             # if block.label <= stmt_idx < block.label + len(block.statements):
-    #             if block_idx == addr.block_idx:
-    #                 return block
-    #         return None
+        if label is None:
+            return method.blocks[0] if method.blocks else None
+        else:
+            return method.block_by_label.get(label, None)
 
     def _check(self, state, *args, **kwargs):
-        return isinstance(state._ip, SootAddressDescriptor)
+        return state.regs._ip_binary is not None and isinstance(state._ip, SootAddressDescriptor)
 
     def _process(self, state, successors, *args, **kwargs):
         addr = state._ip

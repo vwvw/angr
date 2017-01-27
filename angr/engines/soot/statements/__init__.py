@@ -1,7 +1,7 @@
 
 import logging
 
-l = logging.getLogger('angr.engines.soot.statements')
+l = logging.getLogger(name=__name__)
 
 def translate_stmt(stmt, state):
     stmt_name = stmt.__class__.__name__.split(".")[-1]

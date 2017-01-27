@@ -1,7 +1,7 @@
 
 import logging
 
-l = logging.getLogger('angr.engines.soot.expressions')
+l = logging.getLogger(name=__name__)
 
 def translate_expr(expr, state):
     expr_name = expr.__class__.__name__.split('.')[-1]

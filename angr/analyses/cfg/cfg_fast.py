@@ -18,7 +18,12 @@ from .memory_data import MemoryData
 from .cfg_arch_options import CFGArchOptions
 from .cfg_base import CFGBase
 from .cfg_node import CFGNode
+<<<<<<< 6834cbf7956e38068d30e8d5a29519443b4ef06e
 from ..forward_analysis import ForwardAnalysis, AngrSkipJobNotice
+=======
+from ..forward_analysis import ForwardAnalysis
+from .cfg_utils import CFGUtils
+>>>>>>> Preliminary Java support.
 from ... import sim_options as o
 from ...errors import (AngrCFGError, SimEngineError, SimMemoryError, SimTranslationError, SimValueError,
                        AngrUnsupportedSyscallError
@@ -1000,11 +1005,10 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
         self._data_type_guessing_handlers = [ ] if data_type_guessing_handlers is None else data_type_guessing_handlers
 
-        self._cfb = cfb
-
-        l.debug("CFG recovery covers %d regions:", len(self._regions))
-        for start_addr in self._regions:
-            l.debug("... %#x - %#x", start_addr, self._regions[start_addr])
+        if int in self.project.arch.address_types:
+            l.debug("CFG recovery covers %d regions:", len(self._regions))
+            for start_addr, end_addr in self._regions.iter_items():
+                l.debug("... %#x - %#x", start_addr, end_addr)
 
         # A mapping between address and the actual data in memory
         self._memory_data = { }
@@ -1567,7 +1571,18 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                 self._register_analysis_job(prolog_addr, job)
                 return
 
+<<<<<<< 6834cbf7956e38068d30e8d5a29519443b4ef06e
         if self._force_complete_scan:
+=======
+        # Try to see if there is any indirect jump left to be resolved
+        if self._resolve_indirect_jumps and self._indirect_jumps_to_resolve:
+            self._process_unresolved_indirect_jumps()
+
+            if self._job_info_queue:
+                return
+
+        if int in self.project.arch.address_types and self._force_complete_scan:
+>>>>>>> Preliminary Java support.
             addr = self._next_code_addr()
             if addr is None:
                 l.debug("Force-scan jumping failed")
@@ -1638,8 +1653,16 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         for function in self.kb.functions.values():
             function.mark_nonreturning_calls_endpoints()
 
+<<<<<<< 8baa9d4fa4b1c5d671a539aaf007b67450e8edad
         # optional: remove functions that must be alignments
         self.remove_function_alignments()
+=======
+        if self.project.arch.name != 'Soot':
+            self.make_functions()
+
+            # optional: remove functions that must be alignments
+            self.remove_function_alignments()
+>>>>>>> Preliminary Java support.
 
         # make return edges
         self._make_return_edges()
@@ -1827,7 +1850,63 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
         return entries
 
+<<<<<<< 8baa9d4fa4b1c5d671a539aaf007b67450e8edad
     def _scan_irsb(self, cfg_job, current_func_addr):
+=======
+    def _irsb_get_successors(self, addr, function_addr, block, cfg_node):
+        """
+
+        :return:
+        """
+
+        irsb = block
+
+        # IRSB is only used once per CFGNode. We should be able to clean up the CFGNode here in order to save memory
+        cfg_node.irsb = None
+
+        self._process_block_arch_specific(addr, irsb, function_addr)
+
+        # Scan the basic block to collect data references
+        if self._collect_data_ref:
+            self._collect_data_references(irsb, addr)
+
+        # Get all possible successors
+        irsb_next, jumpkind = irsb.next, irsb.jumpkind
+        successors = []
+
+        last_ins_addr = None
+        ins_addr = addr
+        for i, stmt in enumerate(irsb.statements):
+            if isinstance(stmt, pyvex.IRStmt.Exit):
+                successors.append((i,
+                                   last_ins_addr if self.project.arch.branch_delay_slot else ins_addr,
+                                   stmt.dst,
+                                   stmt.jumpkind
+                                   )
+                                  )
+            elif isinstance(stmt, pyvex.IRStmt.IMark):
+                last_ins_addr = ins_addr
+                ins_addr = stmt.addr + stmt.delta
+
+        successors.append(('default',
+                           last_ins_addr if self.project.arch.branch_delay_slot else ins_addr, irsb_next, jumpkind)
+                          )
+
+        successors = self._post_process_successors(addr, successors)
+
+        return successors
+
+    def _block_get_successors(self, addr, function_addr, block, cfg_node):
+        """
+
+        :return:
+        """
+
+        return self._irsb_get_successors(addr, function_addr, block, cfg_node)
+
+    def _scan_irsb(self, addr, current_function_addr, previous_jumpkind, previous_src_node, previous_src_ins_addr,
+                   previous_src_stmt_idx):
+>>>>>>> Preliminary Java support.
         """
         Generate a list of successors (generating them each as entries) to IRSB.
         Updates previous CFG nodes with edges.
@@ -1838,10 +1917,14 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         :rtype: list
         """
 
+<<<<<<< 8baa9d4fa4b1c5d671a539aaf007b67450e8edad
         addr, function_addr, cfg_node, irsb = self._generate_cfgnode(cfg_job, current_func_addr)
 
         # Add edges going to this node in function graphs
         cfg_job.apply_function_edges(self, clear=True)
+=======
+        addr, function_addr, cfg_node, block = self._generate_cfgnode(addr, current_function_addr)
+>>>>>>> Preliminary Java support.
 
         # function_addr and current_function_addr can be different. e.g. when tracing an optimized tail-call that jumps
         # into another function that has been identified before.
@@ -1867,6 +1950,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
             # Mark the address as traced
             self._traced_addresses.add(real_addr)
 
+<<<<<<< 8baa9d4fa4b1c5d671a539aaf007b67450e8edad
         # irsb cannot be None here
         # assert irsb is not None
 
@@ -1909,11 +1993,18 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         successors.append(('default',
                            last_ins_addr if self.project.arch.branch_delay_slot else ins_addr, irsb_next, jumpkind)
                           )
+=======
+        # Get successors
+        successors = self._block_get_successors(addr, current_function_addr, block, cfg_node)
+>>>>>>> Preliminary Java support.
 
         entries = [ ]
 
+<<<<<<< 6834cbf7956e38068d30e8d5a29519443b4ef06e
         successors = self._post_process_successors(addr, irsb.size, successors)
 
+=======
+>>>>>>> Preliminary Java support.
         # Process each successor
         for suc in successors:
             stmt_idx, ins_addr, target, jumpkind = suc
@@ -1960,6 +2051,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         :rtype:                     list
         """
 
+<<<<<<< 8baa9d4fa4b1c5d671a539aaf007b67450e8edad
         if type(target) is pyvex.IRExpr.Const:  # pylint: disable=unidiomatic-typecheck
             target_addr = target.con.value
         elif type(target) in (pyvex.IRConst.U32, pyvex.IRConst.U64):  # pylint: disable=unidiomatic-typecheck
@@ -1968,6 +2060,9 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
             target_addr = target
         else:
             target_addr = None
+=======
+        target_addr = self._create_entries_filter_target(target)
+>>>>>>> Preliminary Java support.
 
         if target_addr in self._known_thunks and jumpkind == 'Ijk_Boring':
             thunk_kind = self._known_thunks[target_addr][0]
@@ -2167,12 +2262,16 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                 # For Soot, we return to the next statement, which is not necessarily the next block (as Shimple does
                 # not break blocks at calls)
                 assert isinstance(ins_addr, SootAddressDescriptor)
+<<<<<<< 6834cbf7956e38068d30e8d5a29519443b4ef06e
                 soot_block = irsb
                 return_block_idx = ins_addr.block_idx
                 if stmt_idx + 1 >= soot_block.label + len(soot_block.statements):
                     # tick the block ID
                     return_block_idx += 1
                 return_site = SootAddressDescriptor(ins_addr.method, return_block_idx, stmt_idx + 1)
+=======
+                return_site = SootAddressDescriptor(ins_addr.method, ins_addr.block_idx, ins_addr.stmt_idx + 1)
+>>>>>>> Preliminary Java support.
 
         edge = None
         if new_function_addr is not None:

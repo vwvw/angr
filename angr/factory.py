@@ -272,11 +272,11 @@ class AngrObjectFactory(object):
               strict_block_end=None, collect_data_refs=False,
               ):
 
-        if isinstance(self.project.arch, ArchSoot):
-            return SootBlock(addr, arch=self.project.arch, project=self.project)
-
         if insn_bytes is not None and insn_text is not None:
             raise AngrError("You cannot provide both 'insn_bytes' and 'insn_text'!")
+
+        if isinstance(self.project.arch, ArchSoot):
+            return SootBlock(addr, arch=self.project.arch, project=self.project)
 
         if insn_bytes is not None:
             byte_string = insn_bytes

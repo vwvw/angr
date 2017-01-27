@@ -1230,6 +1230,7 @@ DEFAULT_CC = {
     'PPC32': SimCCPowerPC,
     'PPC64': SimCCPowerPC64,
     'AARCH64': SimCCAArch64,
+    'Soot': SimCCUnknown,
     'AVR': SimCCUnknown,
     'MSP': SimCCUnknown,
     'S390X': SimCCS390X,

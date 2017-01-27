@@ -1,9 +1,14 @@
+
 import traceback
 
+from archinfo.arch_soot import SootAddressDescriptor
+import pyvex
 import archinfo
 
 from ...codenode import BlockNode, HookNode
 from ...engines.successors import SimSuccessors
+
+from .cfg_utils import CFGUtils
 
 
 class CFGNodeCreationFailure(object):
@@ -35,7 +40,7 @@ class CFGNode(object):
 
     __slots__ = ( 'addr', 'simprocedure_name', 'syscall_name', 'size', 'no_ret', 'is_syscall', 'function_address',
                   'block_id', 'thumb', 'byte_string', '_name', 'instruction_addrs', 'irsb', 'has_return', '_cfg',
-                  '_hash',
+                  '_hash', 'soot_block'
                   )
 
     def __init__(self,
@@ -48,6 +53,7 @@ class CFGNode(object):
                  function_address=None,
                  block_id=None,
                  irsb=None,
+                 soot_block=None,
                  instruction_addrs=None,
                  thumb=False,
                  byte_string=None):
@@ -67,7 +73,27 @@ class CFGNode(object):
         self.thumb = thumb
         self.byte_string = byte_string
 
-        self._name = simprocedure_name
+        if isinstance(addr, SootAddressDescriptor):
+            self.name = repr(addr)
+        else:
+            self.name = simprocedure_name
+            if self.name is None:
+                sym = cfg.project.loader.find_symbol(addr)
+                if sym is not None:
+                    self.name = sym.name
+            if self.name is None and isinstance(cfg.project.arch, archinfo.ArchARM) and addr & 1:
+                sym = cfg.project.loader.find_symbol(addr - 1)
+                if sym is not None:
+                    self.name = sym.name
+
+        if function_address and self.name is None:
+            sym = cfg.project.loader.find_symbol(function_address)
+            if sym is not None:
+                self.name = sym.name
+            if self.name is not None:
+                offset = addr - function_address
+                self.name = "%s%+#x" % (self.name, offset)
+
         self.instruction_addrs = instruction_addrs if instruction_addrs is not None else tuple()
 
         if not instruction_addrs and not self.is_simprocedure:
@@ -75,7 +101,9 @@ class CFGNode(object):
             if irsb is not None:
                 self.instruction_addrs = irsb.instruction_addresses
 
-        self.irsb = None #irsb
+        self.irsb = irsb
+        self.soot_block = soot_block
+
         self.has_return = False
         self._hash = None
 
@@ -144,7 +172,7 @@ class CFGNode(object):
         s = "<CFGNode "
         if self.name is not None:
             s += self.name + " "
-        s += hex(self.addr)
+        s += CFGUtils.loc_to_str(self.addr)
         if self.size is not None:
             s += "[%d]" % self.size
         s += ">"

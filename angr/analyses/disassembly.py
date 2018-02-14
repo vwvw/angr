@@ -365,6 +365,16 @@ class SootStatement(DisassemblyPiece):
             # print func
             return SootExpression(str(expr))
 
+    def _expr(self, expr):
+
+        func = "_handle_%s" % expr.__class__.__name__
+
+        if hasattr(self, func):
+            return getattr(self, func)(expr)
+        else:
+            # print func
+            return SootExpression(str(expr))
+
     def _render(self, formatting=None):
         return [ " ".join([ component if type(component) is str
                             else component.render(formatting=formatting)[0]

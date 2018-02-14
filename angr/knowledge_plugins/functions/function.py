@@ -1102,7 +1102,7 @@ class Function:
         if self.calling_convention is not None:
             self.calling_convention.args = None
             self.calling_convention.func_ty = proto
-            
+
     def _addr_to_funcloc(self, addr):
 
         # FIXME

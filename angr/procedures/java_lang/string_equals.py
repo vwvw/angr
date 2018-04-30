@@ -2,6 +2,8 @@ import logging
 
 from ..java import JavaSimProcedure
 
+import claripy
+
 l = logging.getLogger('angr.procedures.java.string.equals')
 
 

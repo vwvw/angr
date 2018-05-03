@@ -51,7 +51,7 @@ class SimEngineSoot(SimEngine):
 
 
             # FIXME: stmt_idx does not index from the start of the method but from the start
-            #        of the block therefore it returns always the block with label 0 indipendently
+            #        of the block therefore it always returns the block with label 0 indipendently
             #        of where we are
             # block = method.block_by_label.get(stmt_idx, None)
             # if block is not None:

@@ -25,6 +25,7 @@ from .arrayref import SimSootExpr_ArrayRef
 from .binop import SimSootExpr_Binop
 from .cast import SimSootExpr_Cast
 from .condition import SimSootExpr_Condition
+<<<<<<< 0e5452ca569e926bc92614b34b1c9cc9eef09257
 from .constants import (SimSootExpr_IntConstant,
                         SimSootExpr_LongConstant,
                         SimSootExpr_StringConstant,
@@ -43,4 +44,9 @@ from .paramref import SimSootExpr_ParamRef
 from .phi import SimSootExpr_Phi
 from .staticfieldref import SimSootExpr_StaticFieldRef
 from .thisref import SimSootExpr_ThisRef
+=======
+from .paramref import SimSootExpr_ParamRef, SimSootExpr_ArrayRef
+from .phi import SimSootExpr_Phi
+from .length import SimSootExpr_Length
+>>>>>>> Add dummy constraint on string concrete and symbolic
 from .unsupported import SimSootExpr_Unsupported

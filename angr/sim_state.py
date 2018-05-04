@@ -60,10 +60,20 @@ class SimState(PluginHub, ana.Storable):
             l.warning("Unused keyword arguments passed to SimState: %s", " ".join(kwargs))
         super(SimState, self).__init__()
         self.project = project
-        self.arch = arch if arch is not None else project.arch.copy() if project is not None else None
+        
 
-        if type(self.arch) is str:
-            self.arch = archinfo.arch_from_id(self.arch)
+        # Arch
+        if self.javavm_with_jni:
+            self._arch = { "soot": project.arch,  
+                           "vex" : project.simos.native_simos.arch }
+            # This flag indicates whether the current ip is a native address or a soot address descriptor.
+            # Background: We cannot solely rely on the ip, because the registers (storing the ip) are part 
+            # of the plugins that are getting "switched".
+            self.ip_is_soot_addr = False
+        else: 
+            self._arch = arch if arch is not None else project.arch.copy() if project is not None else None
+            if type(self._arch) is str:
+                self._arch = archinfo.arch_from_id(self._arch)
 
         # the options
         if options is None:
@@ -272,6 +282,12 @@ class SimState(PluginHub, ana.Storable):
         else:
             raise SimStateError("Unsupported type '%s' in SimState.options.setter()." % type(v))
 
+    def arch(self):
+        if self.javavm_with_jni:
+            return self._arch['soot'] if self.ip_is_soot_addr else self._arch['vex']
+        else:
+            return self._arch
+   
     #
     # Plugin accessors
     #
@@ -469,6 +485,9 @@ class SimState(PluginHub, ana.Storable):
         c_plugins = self._copy_plugins()
         state = SimState(project=self.project, arch=self.arch, plugins=c_plugins, options=self.options.copy(),
                          mode=self.mode, os_name=self.os_name)
+
+        if self.javavm_with_jni:
+            state.ip_is_soot_addr = self.ip_is_soot_addr
 
         state.uninitialized_access_handler = self.uninitialized_access_handler
         state._special_memory_filler = self._special_memory_filler

@@ -25,10 +25,58 @@ from archinfo.arch_soot import SootAddressDescriptor, SootMethodDescriptor
 l = logging.getLogger('angr.simos.JavaVM')
 
 
+import logging
+l = logging.getLogger('angr.simos.JavaVM')
+
 class SimJavaVM(SimOS):
 
     def __init__(self, *args, **kwargs):
-        super(SimJavaVM, self).__init__(*args, name='JavaVM', **kwargs)
+
+        super(SimJavaVM, self).__init__(*args, **kwargs)
+        self.name = "JavaVM"
+
+        # are native libraries called via JNI?
+        self.jni_support = self.project.loader.main_object.jni_support
+
+        if self.jni_support:
+
+            # Step 1: find all native libs
+            self.native_libs = [obj for obj in self.project.loader.initial_load_objects
+                                    if not isinstance(obj.arch, ArchSoot)]
+
+            # Step 2: determine and set the native SimOS
+            from . import os_mapping  # import dynamically, since the JavaVM class is part of the os_mapping dict
+            # for each native library get the Arch
+            native_libs_arch = Set([obj.arch for obj in self.native_libs])
+            # for each native library get the compatible SimOS 
+            native_libs_simos = Set([os_mapping[obj.os] for obj in self.native_libs]) 
+            # show warning, if more than one SimOS or Arch would be required
+            if len(native_libs_simos) > 1 or len(native_libs_arch) > 1:
+                l.warning("Unsupported: Native libraries appear to require different SimOS's or Arch's.")
+            # instantiate native SimOS
+            if native_libs_simos:
+                self.native_simos = native_libs_simos.pop()(self.project)
+                self.native_simos.arch = native_libs_arch.pop()
+                self.native_simos.configure_project()
+            else:
+                raise AngrSimOSError("Cannot instantiate SimOS for native libraries: No compatible SimOS found.")
+
+            # Step 3: Match JNI symbols from native libs
+            self.native_symbols = {}
+            for lib in self.native_libs:
+                for name, symbol in lib.symbols_by_name.items():
+                    if name.startswith(u'Java'):
+                        self.native_symbols[name] = symbol
+
+            # Step 4: Allocate memory for the return hook
+            # In order to return back from the Vex to the Soot engine, we hook the return address,
+            # More specific: we set the return address to the `native_call_return_to_soot` address and hook it
+            self.native_call_return_to_soot = self.project.loader.extern_object.allocate()
+            self.project.hook(self.native_call_return_to_soot, self.native_call_return_to_soot_hook)
+
+    #
+    # States
+    #
 
         # is the binary using JNI libraries?
         self.is_javavm_with_jni_support = self.project.loader.main_object.jni_support

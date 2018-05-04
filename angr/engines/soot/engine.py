@@ -64,7 +64,7 @@ class SimEngineSoot(SimEngine):
             return None
 
     def _check(self, state, *args, **kwargs):
-        return state.regs._ip_binary is not None and isinstance(state._ip, SootAddressDescriptor)
+        return isinstance(state._ip, SootAddressDescriptor)
 
     def _process(self, state, successors, *args, **kwargs):
         addr = state._ip

@@ -3,6 +3,8 @@ import logging
 import claripy
 from archinfo.arch_soot import ArchSoot, SootAddressDescriptor
 
+from archinfo.arch_soot import SootAddressDescriptor
+
 import logging
 l = logging.getLogger(name=__name__)
 

@@ -18,6 +18,8 @@ from ..procedures.java_jni import jni_functions
 from ..sim_state import SimState
 from ..sim_type import SimTypeFunction, SimTypeReg
 from .simos import SimOS
+from ..engines.soot.values.arrayref import SimSootValue_ArrayRef
+from ..engines.soot.values.local import SimSootValue_Local
 
 l = logging.getLogger('angr.simos.JavaVM')
 

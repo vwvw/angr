@@ -259,6 +259,13 @@ class SimEngineSoot(SimEngine):
             param_ref = SimSootValue_ParamRef(idx, arg.type)
             state.javavm_memory.store(param_ref, arg.value)
 
+        # Push parameter on new frame
+        for idx, (local_ref, value) in enumerate(fixed_args):
+            param_name = "param_%d" % idx
+            local = SimSootValue_Local(param_name, local_ref.type)
+            state.memory.store(local, value)
+
+
     @staticmethod
     def prepare_return_state(state, ret_value=None):
         # pop callstack

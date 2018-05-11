@@ -46,9 +46,9 @@ class SimJavaVM(SimOS):
             # Step 2: determine and set the native SimOS
             from . import os_mapping  # import dynamically, since the JavaVM class is part of the os_mapping dict
             # for each native library get the Arch
-            native_libs_arch = Set([obj.arch for obj in self.native_libs])
+            native_libs_arch = set([obj.arch for obj in self.native_libs])
             # for each native library get the compatible SimOS 
-            native_libs_simos = Set([os_mapping[obj.os] for obj in self.native_libs]) 
+            native_libs_simos = set([os_mapping[obj.os] for obj in self.native_libs]) 
             # show warning, if more than one SimOS or Arch would be required
             if len(native_libs_simos) > 1 or len(native_libs_arch) > 1:
                 l.warning("Unsupported: Native libraries appear to require different SimOS's or Arch's.")

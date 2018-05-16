@@ -20,7 +20,7 @@ from ..sim_type import SimTypeFunction, SimTypeReg
 from .simos import SimOS
 from ..engines.soot.values.arrayref import SimSootValue_ArrayRef
 from ..engines.soot.values.local import SimSootValue_Local
-from archinfo.arch_soot import SootAddressDescriptor, SootMethodDescriptor
+from ..sim_type import SimTypeFunction, SimTypeInt, SimTypeReg
 
 l = logging.getLogger('angr.simos.JavaVM')
 
@@ -72,6 +72,9 @@ class SimJavaVM(SimOS):
             # More specific: we set the return address to the `native_call_return_to_soot` address and hook it
             self.native_call_return_to_soot = self.project.loader.extern_object.allocate()
             self.project.hook(self.native_call_return_to_soot, self.native_call_return_to_soot_hook)
+
+            # Step 5: Calling convention SimCC class
+            self.native_cc_cls = DEFAULT_CC[self.native_simos.arch.name]
 
     #
     # States

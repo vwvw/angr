@@ -136,7 +136,6 @@ class SimEngineSoot(SimEngine):
         # add invoke exit
         if s_stmt.has_invoke_target:
             invoke_state = state.copy()
-<<<<<<< 8848b3f2612cac0b91725dcda84b0b257b33a615
             # parse invoke expression
             invoke_expr = s_stmt.invoke_expr
             method = invoke_expr.method
@@ -154,58 +153,6 @@ class SimEngineSoot(SimEngine):
                     # => skip invocation and continue execution linearly
                     return False
                 invoke_state = self._setup_native_callsite(invoke_state, addr, method, args, ret_addr, ret_var)
-=======
-
-            last_addr = state.addr.copy()
-            last_addr.stmt_idx = stmt_idx
-            self._prepare_call_state(invoke_state, last_addr)
-
-            invoke_target = state.scratch.invoke_target
-
-            if state.scratch.invoke_has_native_target:
-                # The target of the call is a native function
-                # => We need to setup the native call-site
-                l.debug("Invoke has a native target.")
-
-                # Step 1: Get native address
-                invoke_addr = self.project.simos.get_clemory_addr_of_native_method(invoke_target)
-
-                # Step 2: Setup parameter
-                
-                args = []
-
-                # JNI enviroment pointer
-                jni_env = self.project.simos.jni_env
-                args += [(jni_env, SimTypeReg(size=64))]
-
-                # Handle to the current object or class (TODO static vs. nonstatic)
-                jni_this = 0
-                args += [(jni_this,  SimTypeReg(size=0))]
-                
-                # Function arguments
-                for idx, arg_type in enumerate(invoke_target.params):
-
-                    if arg_type in ['float', 'double']:
-                        # Argument has a primitive floating-point type
-                        raise NotImplementedError('Floating point types are not yet supported for native arguments.')
-
-                    elif arg_type in ArchSoot.primitive_types.keys():
-                        # Argument has a primitive intergral type
-                        arg_value = invoke_state.memory.stack.load('param_%d' % idx)
-                        arg_sim_type = SimTypeReg(size=ArchSoot.sizeof[arg_type])
-                        args += [(arg_value, arg_sim_type)]
-
-                    else:
-                        # Argument has a relative type
-                        raise NotImplementedError('References types are not yet supported for native arguments.')
-
-                # Step 3: Set return type
-                ret_type = SimTypeReg(size=ArchSoot.sizeof[invoke_target.ret])
-
-                # Step 4: Create native invoke state
-                invoke_state = self.project.simos.state_call(invoke_addr, *args, base_state=invoke_state, ret_type=ret_type)
-
->>>>>>> Add basic frame for JNI interface function calls
             else:
                 l.debug("Invoke: %r", method)
                 self.setup_callsite(invoke_state, args, ret_addr, ret_var)

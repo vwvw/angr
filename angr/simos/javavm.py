@@ -20,13 +20,13 @@ from ..sim_type import SimTypeFunction, SimTypeReg
 from .simos import SimOS
 from ..engines.soot.values.arrayref import SimSootValue_ArrayRef
 from ..engines.soot.values.local import SimSootValue_Local
+from ..errors import AngrSimOSError
+from ..procedures.java_jni import jni_functions
+from ..sim_state import SimState
 from ..sim_type import SimTypeFunction, SimTypeInt, SimTypeReg
+from .simos import SimOS
 
-l = logging.getLogger('angr.simos.JavaVM')
-
-
-import logging
-l = logging.getLogger('angr.simos.JavaVM')
+l = logging.getLogger(name=__name__)
 
 class SimJavaVM(SimOS):
 
@@ -70,14 +70,32 @@ class SimJavaVM(SimOS):
                     if name.startswith(u'Java'):
                         self.native_symbols[name] = symbol
 
-            # Step 4: Allocate memory for the return hook
-            # In order to return back from the Vex to the Soot engine, we hook the return address,
-            # More specific: we set the return address to the `native_call_return_to_soot` address and hook it
+            # Step 4: Look up SimCC class of the native calling convention 
+            self.native_cc_cls = DEFAULT_CC[self.native_simos.arch.name]
+
+            # Step 5: Allocate memory for the return hook
+            # => In order to return back from the Vex to the Soot engine, we hook the return address.
+            #    Therefore we set the return address of the native function to `native_call_return_to_soot`
+            #    and hook it.
             self.native_call_return_to_soot = self.project.loader.extern_object.allocate()
             self.project.hook(self.native_call_return_to_soot, self.native_call_return_to_soot_hook)
 
-            # Step 5: Calling convention SimCC class
-            self.native_cc_cls = DEFAULT_CC[self.native_simos.arch.name]
+            # Step 6: JNI interface functions
+            # => During runtime, the native code can interact with the JVM through JNI interface functions.
+            #    We hook these functions and implement the effects with SimProcedures.
+            native_addr_size = self.native_simos.arch.bits/8
+            # allocate memory for the jni env pointer and function table
+            self.jni_env = self.project.loader.extern_object.allocate(size=native_addr_size, 
+                                                                      alignment=native_addr_size)
+            self.jni_function_table = self.project.loader.extern_object.allocate(size=native_addr_size*len(jni_functions),
+                                                                                 alignment=native_addr_size)
+            # hook jni functions
+            for idx, jni_function in enumerate(jni_functions):
+                addr = self.jni_function_table + idx * native_addr_size
+                if not jni_function:
+                    self.project.hook(addr, SIM_PROCEDURES['java_jni']['NotImplemented'])
+                else: 
+                    self.project.hook(addr, SIM_PROCEDURES['java_jni'][jni_function])
 
     #
     # States

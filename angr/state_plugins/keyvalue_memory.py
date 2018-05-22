@@ -4,7 +4,7 @@ import logging
 from ..storage import SimKVStore
 from .plugin import SimStatePlugin
 
-l = logging.getLogger("angr.state_plugins.keyvalue_memory")
+l = logging.getLogger(name=__name__)
 
 
 class SimKeyValueMemory(SimKVStore): # pylint: disable=abstract-method

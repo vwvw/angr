@@ -15,7 +15,7 @@ from ..storage.memory import SimMemory
 from .keyvalue_memory import SimKeyValueMemory
 from .plugin import SimStatePlugin
 
-l = logging.getLogger("angr.state_plugins.javavm_memory")
+l = logging.getLogger(name=__name__)
 
 MAX_ARRAY_SIZE = 1000   # FIXME arbitrarily chosen limit
 

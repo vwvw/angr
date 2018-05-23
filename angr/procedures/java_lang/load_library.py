@@ -1,7 +1,6 @@
 
 from ..java import JavaSimProcedure
 
-
 class LoadLibrary(JavaSimProcedure):
 
     __provides__ = (

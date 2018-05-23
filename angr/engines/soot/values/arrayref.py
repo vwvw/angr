@@ -42,6 +42,10 @@ class SimSootValue_ArrayBaseRef(SimSootValue):
         """
         self._default_value_generator = generator
 
+    @staticmethod
+    def _create_unique_id(base, index):
+        return "%s[%d]" % (base.id, index)
+
     @classmethod
     def from_sootvalue(cls, soot_value, state):
         raise NotImplementedError()

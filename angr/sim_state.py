@@ -4,7 +4,6 @@ import contextlib
 import weakref
 
 import logging
-l = logging.getLogger(name=__name__)
 
 import angr # type annotations; pylint:disable=unused-import
 import claripy
@@ -15,8 +14,13 @@ from archinfo.arch_soot import ArchSoot, SootAddressDescriptor
 from .misc.plugins import PluginHub, PluginPreset
 from .sim_state_options import SimStateOptions
 
+<<<<<<< b427767cbb6f7e15e90e122a0afc46239cd2ab3b
 import logging
 l = logging.getLogger("angr.sim_state")
+=======
+l = logging.getLogger(name=__name__)
+
+>>>>>>> Add logger to SimState
 
 def arch_overrideable(f):
     @functools.wraps(f)

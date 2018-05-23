@@ -4,7 +4,6 @@ import contextlib
 import weakref
 
 import logging
-l = logging.getLogger(name=__name__)
 
 import angr # type annotations; pylint:disable=unused-import
 import claripy
@@ -16,6 +15,9 @@ from archinfo.arch_soot import ArchSoot, SootAddressDescriptor
 from .misc.ux import deprecated
 from .misc.plugins import PluginHub, PluginPreset
 from .sim_state_options import SimStateOptions
+
+l = logging.getLogger(name=__name__)
+
 
 def arch_overrideable(f):
     @functools.wraps(f)
@@ -289,7 +291,21 @@ class SimState(PluginHub, ana.Storable):
             return self._arch['soot'] if self.ip_is_soot_addr else self._arch['vex']
         else:
             return self._arch
-   
+
+    @property
+    def javavm(self):
+        """
+        Returns if this state can be used with a JavaVM SimOS.
+        """
+        return self.project and isinstance(self.project.arch, ArchSoot)
+
+    @property
+    def javavm_with_jni(self):
+        """
+        Returns if this state can be used with a JavaVM SimOS with JNI support.
+        """
+        return self.project and isinstance(self.project.arch, ArchSoot) and self.project.simos.jni_support
+
     #
     # Plugin accessors
     #

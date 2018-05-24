@@ -14,13 +14,8 @@ from archinfo.arch_soot import ArchSoot, SootAddressDescriptor
 from .misc.plugins import PluginHub, PluginPreset
 from .sim_state_options import SimStateOptions
 
-<<<<<<< b427767cbb6f7e15e90e122a0afc46239cd2ab3b
-import logging
-l = logging.getLogger("angr.sim_state")
-=======
 l = logging.getLogger(name=__name__)
 
->>>>>>> Add logger to SimState
 
 def arch_overrideable(f):
     @functools.wraps(f)
@@ -67,15 +62,14 @@ class SimState(PluginHub, ana.Storable):
             l.warning("Unused keyword arguments passed to SimState: %s", " ".join(kwargs))
         super(SimState, self).__init__()
         self.project = project
-        
 
         # Arch
         if self.javavm_with_jni:
             self._arch = { "soot": project.arch,  
                            "vex" : project.simos.native_simos.arch }
             # This flag indicates whether the current ip is a native address or a soot address descriptor.
-            # Background: We cannot solely rely on the ip, because the registers (storing the ip) are part 
-            # of the plugins that are getting "switched".
+            # Note: We cannot solely rely on the ip, because the registers (storing the ip) are part of the
+            # plugins that are getting toggled (=> mutual dependence).
             self.ip_is_soot_addr = False
         else: 
             self._arch = arch if arch is not None else project.arch.copy() if project is not None else None
@@ -107,7 +101,7 @@ class SimState(PluginHub, ana.Storable):
             for p in plugins.values():
                 p.init_state()
 
-        if not self.has_plugin('memory'):
+        if not self.has_plugin('memory') and not self.has_plugin('memory_soot'):
             # We don't set the memory endness because, unlike registers, it's hard to understand
             # which endness the data should be read.
 
@@ -328,6 +322,7 @@ class SimState(PluginHub, ana.Storable):
     def arch(self, v):
         self._arch = v
 
+
     #
     # Plugin accessors
     #
@@ -378,6 +373,12 @@ class SimState(PluginHub, ana.Storable):
             plugin.set_strongref_state(self)
         if not inhibit_init:
             plugin.init_state()
+        
+    def set_callstack(self, new_callstack):
+        plugin_name = 'callstack'
+        if self.javavm_with_jni:
+            plugin_name += '_soot' if self.ip_is_soot_addr else '_vex'
+        self.register_plugin(plugin_name, new_callstack)
 
     #
     # Java support

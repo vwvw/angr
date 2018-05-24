@@ -63,15 +63,14 @@ class SimState(PluginHub, ana.Storable):
             l.warning("Unused keyword arguments passed to SimState: %s", " ".join(kwargs))
         super(SimState, self).__init__()
         self.project = project
-        
 
         # Arch
         if self.javavm_with_jni:
             self._arch = { "soot": project.arch,  
                            "vex" : project.simos.native_simos.arch }
             # This flag indicates whether the current ip is a native address or a soot address descriptor.
-            # Background: We cannot solely rely on the ip, because the registers (storing the ip) are part 
-            # of the plugins that are getting "switched".
+            # Note: We cannot solely rely on the ip, because the registers (storing the ip) are part of the
+            # plugins that are getting toggled (=> mutual dependence).
             self.ip_is_soot_addr = False
         else: 
             self._arch = arch if arch is not None else project.arch.copy() if project is not None else None
@@ -103,7 +102,7 @@ class SimState(PluginHub, ana.Storable):
             for p in plugins.values():
                 p.init_state()
 
-        if not self.has_plugin('memory'):
+        if not self.has_plugin('memory') and not self.has_plugin('memory_soot'):
             # We don't set the memory endness because, unlike registers, it's hard to understand
             # which endness the data should be read.
 
@@ -112,7 +111,8 @@ class SimState(PluginHub, ana.Storable):
             if self.plugin_preset is None:
                 self.use_plugin_preset('default')
 
-            if isinstance(self.arch, ArchSoot):
+            # Determine memory backend
+            if self.javavm and not self.javavm_with_jni:
                 sim_memory_cls = self.plugin_preset.request_plugin('javavm_memory')
                 sim_memory = sim_memory_cls(memory_id='mem')
             
@@ -135,26 +135,60 @@ class SimState(PluginHub, ana.Storable):
                 sim_memory = sim_memory_cls(memory_backer=memory_backer, memory_id='mem',
                                             permissions_backer=permissions_backer)
 
-            self.register_plugin('memory', sim_memory)
+            # Add memory plugin
+            if not self.javavm_with_jni:
+                self.register_plugin('memory', sim_memory)
 
-        if not self.has_plugin('registers'):
+            else:
+                # In case of the JavaVM with JNI support, we add two `memory` plugins; one for modeling the
+                # native memory and another one for the JavaVM memory.
+                javavm_sim_memory_cls = self.plugin_preset.request_plugin('javavm_memory')
+                javavm_sim_memory = javavm_sim_memory_cls(memory_id='mem')
+                native_sim_memory = sim_memory
+                self.register_plugin('memory_soot', javavm_sim_memory)
+                self.register_plugin('memory_vex', native_sim_memory)
+
+        if not self.has_plugin('registers') and not self.has_plugin('registers_soot'):
 
             # Same as for 'memory' plugin.
             if self.plugin_preset is None:
                 self.use_plugin_preset('default')
 
-            if isinstance(self.arch, ArchSoot):
+            # Get register endness
+            if self.javavm_with_jni:
+                register_endness = self._arch['vex'].register_endness
+            else:
+                register_endness = self.arch.register_endness
+
+            # Determine register backend
+            if self.javavm and not self.javavm_with_jni:
                 sim_registers_cls = self.plugin_preset.request_plugin('keyvalue_memory')
                 sim_registers = sim_registers_cls(memory_id='reg')
 
             elif o.FAST_REGISTERS in self.options:
                 sim_registers_cls = self.plugin_preset.request_plugin('fast_memory')
-                sim_registers = sim_registers_cls(memory_id="reg", endness=self.arch.register_endness)
+                sim_registers = sim_registers_cls(memory_id="reg", endness=register_endness)
             else:
                 sim_registers_cls = self.plugin_preset.request_plugin('sym_memory')
-                sim_registers = sim_registers_cls(memory_id="reg", endness=self.arch.register_endness)
+                sim_registers = sim_registers_cls(memory_id="reg", endness=register_endness)
 
-            self.register_plugin('registers', sim_registers)
+            # Add registers plugin
+            if not self.javavm_with_jni:
+                self.register_plugin('registers', sim_registers)
+            
+            else:
+                # Analog to memory, we add two registers plugins
+                javavm_sim_registers_cls = self.plugin_preset.request_plugin('keyvalue_memory')
+                javavm_sim_registers = javavm_sim_registers_cls(memory_id='reg')
+                native_sim_registers = sim_registers
+                self.register_plugin('registers_soot', javavm_sim_registers)
+                self.register_plugin('registers_vex', native_sim_registers)
+
+        # Callstack
+        if self.javavm_with_jni and not self.has_plugin('callstack_soot'):
+            callstack_cls = self.plugin_preset.request_plugin('callstack')
+            self.register_plugin('callstack_vex', callstack_cls())
+            self.register_plugin('callstack_soot', callstack_cls())
 
         # OS name
         self.os_name = os_name
@@ -305,6 +339,7 @@ class SimState(PluginHub, ana.Storable):
         """
         return self.project and isinstance(self.project.arch, ArchSoot) and self.project.simos.jni_support
 
+
     #
     # Plugin accessors
     #
@@ -324,6 +359,14 @@ class SimState(PluginHub, ana.Storable):
     # Plugins
     #
 
+    def get_plugin(self, name, with_suffix=''):
+        if self.javavm_with_jni and not with_suffix:
+            # In case of the JavaVM with JNI support, a state can store the same plugin
+            # twice; one for the native and one for the java view of the state.
+            suffix = '_soot' if self.ip_is_soot_addr else '_vex'
+            name = name+suffix if self.has_plugin(name+suffix) else name
+        return super(SimState, self).get_plugin(name+with_suffix)
+
     def register_plugin(self, name, plugin, inhibit_init=False): # pylint: disable=arguments-differ
         #l.debug("Adding plugin %s of type %s", name, plugin.__class__.__name__)
         self._set_plugin_state(plugin, inhibit_init=inhibit_init)
@@ -340,6 +383,12 @@ class SimState(PluginHub, ana.Storable):
             plugin.set_strongref_state(self)
         if not inhibit_init:
             plugin.init_state()
+        
+    def set_callstack(self, new_callstack):
+        plugin_name = 'callstack'
+        if self.javavm_with_jni:
+            plugin_name += '_soot' if self.ip_is_soot_addr else '_vex'
+        self.register_plugin(plugin_name, new_callstack)
 
     #
     # Constraint pass-throughs

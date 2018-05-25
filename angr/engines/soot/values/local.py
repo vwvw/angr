@@ -6,7 +6,7 @@ class SimSootValue_Local(SimSootValue):
 
     __slots__ = [ 'id', 'type' ]
 
-    def __init__(self, method_fullname, local_name, type_):
+    def __init__(self, name, type_):
         super(SimSootValue_Local, self).__init__()
         self.id = name
         self.type = type_

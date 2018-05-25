@@ -13,7 +13,7 @@ l = logging.getLogger("angr.engines.soot.values.thisref")
 
 class SimSootValue_ThisRef(SimSootValue):
 
-    __slots__ = [ 'id', 'type' ]
+    __slots__ = [ 'id', 'type', 'heap_alloc_id' ]
 
     def __init__(self, heap_alloc_id, type_):
         self.heap_alloc_id = heap_alloc_id

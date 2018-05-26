@@ -6,7 +6,7 @@ from archinfo import ArchSoot
 from .base import SimSootExpr
 from ..values.thisref import SimSootValue_ThisRef
 
-l = logging.getLogger("angr.engines.soot.expressions.cast")
+l = logging.getLogger(name=__name__)
 
 
 class SimSootExpr_Cast(SimSootExpr):

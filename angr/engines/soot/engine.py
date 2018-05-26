@@ -27,6 +27,7 @@ class SimEngineSoot(SimEngine):
         super(SimEngineSoot, self).__init__()
 
         self.project = project
+        self.javavm = self.project.simos
 
     def lift(self, addr=None, the_binary=None, **kwargs):
         assert isinstance(addr, SootAddressDescriptor)

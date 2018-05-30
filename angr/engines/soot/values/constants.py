@@ -1,4 +1,3 @@
-
 from .base import SimSootValue
 
 class SimSootValue_IntConstant(SimSootValue):

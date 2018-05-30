@@ -44,7 +44,7 @@ class SimSootValue_ArrayBaseRef(SimSootValue):
 
     @staticmethod
     def _create_unique_id(heap_alloc_id, index):
-        return "%s[%d]" % (heap_alloc_id, index)
+        return "%s[%s]" % (heap_alloc_id, str(index))
 
     @classmethod
     def from_sootvalue(cls, soot_value, state):

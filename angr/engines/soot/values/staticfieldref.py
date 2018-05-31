@@ -1,6 +1,9 @@
+import logging
 
 from .base import SimSootValue
 from ..field_dispatcher import resolve_field
+
+l = logging.getLogger('angr.engines.soot.values.staticfieldref')
 
 
 class SimSootValue_StaticFieldRef(SimSootValue):

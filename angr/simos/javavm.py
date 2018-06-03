@@ -72,15 +72,12 @@ class SimJavaVM(SimOS):
                     if name.startswith(u'Java'):
                         self.native_symbols[name] = symbol
 
-            # Step 4: Look up SimCC class of the native calling convention 
-            self.native_cc_cls = DEFAULT_CC[self.native_simos.arch.name]
-
-            # Step 5: Allocate memory for the return hook
+            # Step 4: Allocate memory for the return hook
             # => In order to return back from the Vex to the Soot engine, we hook the return address (see state_call).
             self.native_return_hook_addr = self.project.loader.extern_object.allocate()
             self.project.hook(self.native_return_hook_addr, SimEngineSoot.prepare_native_return_state)
 
-            # Step 6: JNI interface functions
+            # Step 5: JNI interface functions
             # => During runtime, the native code can interact with the JVM through JNI interface functions.
             #    For this, the native code gets a JNIEnv interface pointer with every native call, which 
             #    "[...] points to a location that contains a pointer to a function table" and "each entry in 

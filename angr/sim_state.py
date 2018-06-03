@@ -380,6 +380,16 @@ class SimState(PluginHub, ana.Storable):
             plugin_name += '_soot' if self.ip_is_soot_addr else '_vex'
         self.register_plugin(plugin_name, new_callstack)
 
+    def get_javavm_view_of_plugin(self, plugin_name):
+        """
+        In case of the JavaVM with JNI support, a state can store the same plugin
+        twice; one for the native and one for the java view of the state.
+
+        :return: The JavaVM view of the requested plugin.
+        """
+        plugin_name = plugin_name+"_soot" if self.has_plugin(plugin_name+"_soot") else plugin_name
+        return self.get_plugin(plugin_name)
+
     #
     # Java support
     #

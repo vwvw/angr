@@ -27,12 +27,7 @@ from ..sim_state import SimState
 from ..sim_type import SimTypeFunction, SimTypeInt, SimTypeReg
 from .simos import SimOS
 
-<<<<<<< 27a01d5198b09a0a6a02cb432913af6f377c488d
 l = logging.getLogger(name=__name__)
-=======
-
-l = logging.getLogger('angr.simos.JavaVM')
->>>>>>> Improved setup of native callsite and return from native code
 
 class SimJavaVM(SimOS):
 

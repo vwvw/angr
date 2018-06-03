@@ -6,8 +6,10 @@ from . import translate_value
 from ....errors import SimEngineError
 from .base import SimSootValue
 from .constants import SimSootValue_IntConstant
+from claripy import And
+from ....errors import SimEngineError
 
-l = logging.getLogger('angr.engines.soot.values.arrayref')
+l = logging.getLogger(name=__name__)
 
 
 class SimSootValue_ArrayBaseRef(SimSootValue):
@@ -42,10 +44,13 @@ class SimSootValue_ArrayBaseRef(SimSootValue):
         """
         self._default_value_generator = generator
 
-    @staticmethod
-    def _create_unique_id(heap_alloc_id, index):
-        return "%s[%s]" % (heap_alloc_id, str(index))
+    def __repr__(self):
+        return self.id
 
+    @staticmethod
+    def get_reference_with_idx(base, idx):
+        return SimSootValue_ArrayRef(base.heap_alloc_id, idx, base.type, base.size)
+    
     @classmethod
     def from_sootvalue(cls, soot_value, state):
         raise NotImplementedError()

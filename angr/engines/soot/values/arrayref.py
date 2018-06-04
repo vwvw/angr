@@ -48,7 +48,7 @@ class SimSootValue_ArrayBaseRef(SimSootValue):
         return self.id
 
     @staticmethod
-    def get_reference_with_idx(base, idx):
+    def get_arrayref_for_idx(base, idx):
         return SimSootValue_ArrayRef(base.heap_alloc_id, idx, base.type, base.size)
     
     @classmethod

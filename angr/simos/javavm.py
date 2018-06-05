@@ -20,6 +20,8 @@ from ..sim_type import SimTypeFunction, SimTypeReg
 from .simos import SimOS
 from ..engines.soot.values.arrayref import SimSootValue_ArrayRef
 from ..engines.soot.values.local import SimSootValue_Local
+from ..engines.soot.values.thisref import SimSootValue_ThisRef
+from ..engines.soot.values.instancefieldref import SimSootValue_InstanceFieldRef
 from ..engines.soot import SimEngineSoot
 from ..errors import AngrSimOSError
 from ..procedures.java_jni import jni_functions

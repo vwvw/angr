@@ -3,6 +3,7 @@ import logging
 
 from .base import SimSootStmt
 
+import logging
 l = logging.getLogger('angr.engines.soot.statements.invoke')
 
 

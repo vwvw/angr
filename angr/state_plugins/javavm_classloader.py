@@ -7,7 +7,7 @@ from ..engines.soot.method_dispatcher import resolve_method
 from ..sim_state import SimState
 from .plugin import SimStatePlugin
 
-l = logging.getLogger("angr.state_plugins.javavm_classloader")
+l = logging.getLogger(name=__name__)
 
 
 class SimJavaVmClassloader(SimStatePlugin):

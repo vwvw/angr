@@ -45,7 +45,8 @@ class SimJavaVM(SimOS):
                                     if not isinstance(obj.arch, ArchSoot)]
 
             if len(self.native_libs) == 0:
-                raise AngrSimOSError("No native lib was loaded. Is the native_libs_ld_path set correctly?")
+                l.error("No native lib was loaded. Is the native_libs_ld_path set correctly?")
+                raise AngrSimOSError()
 
             # Step 2: determine and set the native SimOS
             from . import os_mapping  # import dynamically, since the JavaVM class is part of the os_mapping dict

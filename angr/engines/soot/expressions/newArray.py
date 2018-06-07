@@ -4,7 +4,7 @@ import logging
 from ..values import SimSootValue_ArrayBaseRef
 from .base import SimSootExpr
 
-l = logging.getLogger('angr.engines.soot.expressions.newarray')
+l = logging.getLogger(name=__name__)
 
 
 class SimSootExpr_NewArray(SimSootExpr):

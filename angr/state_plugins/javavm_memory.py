@@ -272,48 +272,6 @@ class SimJavaVmMemory(SimMemory):
             l.debug("Load %s from %s", heap_elem_id, value)
         return value
 
-    def load_array_range(self, array, start_idx, no_of_elements):
-        # concretize values
-        start_idxes = self.concretize_load_idx(start_idx)
-        # load values for first concrete start index
-        concrete_start_idx = start_idxes[0]
-        load_values = self._load_array_range(array=array, 
-                                             start=concrete_start_idx, 
-                                             end=concrete_start_idx+no_of_elements)
-        start_idx_options = [concrete_start_idx == start_idx]
-        # update load values for all remaining start indexes
-        for concrete_start_idx in start_idxes[1:]:
-            values = self._load_array_range(array=array, 
-                                            start=concrete_start_idx, 
-                                            end=concrete_start_idx+no_of_elements)
-            for i, value in enumerate(values):
-                load_values[i] = self.state.solver.If(
-                    concrete_start_idx == start_idx,
-                    value,
-                    load_values[i]
-                )
-            start_idx_options.append(concrete_start_idx == start_idx)
-            print values
-            print load_values
-
-        if len(start_idx_options) > 1:
-            load_constraint = [self.state.solver.Or(*start_idx_options)]
-        elif not self.state.solver.symbolic(start_idx_options[0]):
-            load_constraint = []
-        else:  
-            load_constraint = [start_idx_options[0]]
-            
-        self.state.add_constraints(*load_constraint)
-
-        return load_values
-
-    def _load_array_range(self, array, start, end):
-        values = []
-        for idx in range(start, end):
-            value = self._load_arrayref_from_heap(array_id=array.heap_alloc_id, idx=idx)
-            values.append(value)
-        return values
-
     #
     # Concretization strategies
     #

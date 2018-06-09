@@ -5,6 +5,7 @@ from ..values import SimSootValue_StringRef
 from .base import SimSootExpr
 from ..values import SimSootValue_ThisRef
 from ..values import SimSootValue_InstanceFieldRef
+from ..values.constants import SimSootValue_ClassConstant
 
 
 class SimSootExpr_IntConstant(SimSootExpr):

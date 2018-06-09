@@ -74,6 +74,9 @@ class SimStateJNIReferences(SimStatePlugin):
             raise NotImplementedError("Opaque reference %s is symbolic." % opaque_ref.to_claripy())
         return self.state.solver.eval(opaque_ref)
 
+    def clear_local_references(self):
+        self.local_references = {}
+
     @SimStatePlugin.memo
     def copy(self, memo): # pylint: disable=unused-argument
         return SimStateJNIReferences(local_refs=self.local_refs,

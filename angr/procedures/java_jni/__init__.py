@@ -12,7 +12,7 @@ from ...sim_type import SimTypeFunction
 from ...state_plugins.sim_action_object import SimActionObject
 import itertools
 
-l = logging.getLogger('angr.procedures.java_jni')
+l = logging.getLogger(name=__name__)
 
 
 class JNISimProcedure(SimProcedure):

@@ -16,8 +16,10 @@ from .sim_type import SimStruct
 from .sim_type import parse_file
 
 from .state_plugins.sim_action_object import SimActionObject
+from .engines.soot.engine import SimEngineSoot
 
 l = logging.getLogger(name=__name__)
+
 
 # TODO: This file contains explicit and implicit byte size assumptions all over. A good attempt to fix them was made.
 # If your architecture hails from the astral plane, and you're reading this, start fixing here.
@@ -537,6 +539,11 @@ class SimCC:
         set alloc_base to point to somewhere other than the stack, set grow_like_stack to False so that sequencial
         allocations happen at increasing addresses.
         """
+
+        if isinstance(self, SimCCSoot):
+            SimEngineSoot.setup_callsite(state, ret_addr, args)
+            return
+
         allocator = AllocHelper(alloc_base if alloc_base is not None else state.regs.sp,
                 grow_like_stack,
                 self.arch.memory_endness == 'Iend_LE')
@@ -1153,6 +1160,9 @@ class SimCCPowerPC64LinuxSyscall(SimCC):
     def syscall_num(state):
         return state.regs.r0
 
+class SimCCSoot(SimCC):
+    ARCH = archinfo.ArchSoot
+
 class SimCCUnknown(SimCC):
     """
     Represent an unknown calling convention.
@@ -1233,7 +1243,7 @@ DEFAULT_CC = {
     'PPC32': SimCCPowerPC,
     'PPC64': SimCCPowerPC64,
     'AARCH64': SimCCAArch64,
-    'Soot': SimCCUnknown,
+    'Soot': SimCCSoot,
     'AVR': SimCCUnknown,
     'MSP': SimCCUnknown,
     'S390X': SimCCS390X,

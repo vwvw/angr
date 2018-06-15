@@ -122,6 +122,13 @@ class SimJavaVmClassloader(SimStatePlugin):
             return self.get_class(base_class.super_class)
         return None
 
+    def get_class_hierarchy(self, name):
+        class_ = self.get_class(name)
+        while class_:
+            yield class_
+            class_ = self.get_class(class_.super_class)
+
+
     @SimStatePlugin.memo
     def copy(self, memo): # pylint: disable=unused-argument
         return SimJavaVmClassloader(

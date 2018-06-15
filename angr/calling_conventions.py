@@ -16,9 +16,11 @@ from .sim_type import SimStruct
 from .sim_type import parse_file
 
 from .state_plugins.sim_action_object import SimActionObject
+from .engines.soot.engine import SimEngineSoot
 
 l = logging.getLogger(name=__name__)
 from .engines.soot.engine import SimEngineSoot
+
 
 # TODO: This file contains explicit and implicit byte size assumptions all over. A good attempt to fix them was made.
 # If your architecture hails from the astral plane, and you're reading this, start fixing here.

@@ -69,6 +69,10 @@ class SimJavaVmMemory(SimMemory):
             cstack = self._stack[-1+(-1*frame)]
             cstack.store(addr.id, data, type_=addr.type)
 
+        elif type(addr) is SimSootValue_ParamRef:
+            cstack = self._stack[-1+(-1*frame)]
+            cstack.store(addr.id, data, type_=addr.type)
+
         elif type(addr) is SimSootValue_ArrayRef:
             self.store_array_element(addr.base, addr.index, data)
 

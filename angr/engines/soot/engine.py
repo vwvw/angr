@@ -213,6 +213,31 @@ class SimEngineSoot(SimEngine):
 
         return proc
 
+    @classmethod
+    def setup_callsite(cls, state, ret_addr, args):
+        #
+        #   Merge with _prepare_call_state
+        #   If ret_addr != None: ...
+        #   If args != None: ...
+
+        # push new callstack frame
+        state.callstack.push(state.callstack.copy())
+        state.callstack.ret_addr = ret_addr
+
+        # push new stack frame
+        javavm_memory = state.get_javavm_view_of_plugin('memory')
+        javavm_memory.push_stack_frame()
+
+        # setup arguments
+        if isinstance(args[0][0], SimSootValue_ThisRef):
+            this_ref, this_ref_type = args.pop(0)
+            local = SimSootValue_Local("this", this_ref_type)
+            javavm_memory.store(local, this_ref)
+
+        for idx, (value, value_type) in enumerate(args):
+            param_ref = SimSootValue_ParamRef(idx, value_type)
+            javavm_memory.store(param_ref, value)
+
     @staticmethod
     def _is_method_beginning(addr):
         return addr.block_idx == 0 and addr.stmt_idx == 0

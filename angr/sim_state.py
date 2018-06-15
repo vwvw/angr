@@ -374,11 +374,6 @@ class SimState(PluginHub, ana.Storable):
         if not inhibit_init:
             plugin.init_state()
         
-    def set_callstack(self, new_callstack):
-        plugin_name = 'callstack'
-        if self.javavm_with_jni:
-            plugin_name += '_soot' if self.ip_is_soot_addr else '_vex'
-        self.register_plugin(plugin_name, new_callstack)
 
     def get_javavm_view_of_plugin(self, plugin_name):
         """

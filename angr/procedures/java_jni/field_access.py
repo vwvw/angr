@@ -43,7 +43,6 @@ class GetFieldID(JNISimProcedure):
 class GetStaticField(JNISimProcedure):
 
     return_ty = None
-
     def run(self, ptr_env, _, field_id_):
         # get field reference
         field_id = self.state.jni_references.lookup(field_id_)
@@ -97,7 +96,6 @@ class SetStaticField(JNISimProcedure):
 class GetField(JNISimProcedure):
 
     return_ty = None
-
     def run(self, ptr_env, obj_, field_id_):
         # get field reference
         obj = self.state.jni_references.lookup(obj_)

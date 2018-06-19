@@ -315,7 +315,7 @@ jni_functions["CallNonvirtualVoidMethodV"] = not_implemented
 jni_functions["CallNonvirtualVoidMethodA"] = "CallNonvirtualVoidMethodA"
 
 # Instance Field Access
-jni_functions["GetFieldID"] = "GetInstanceFieldID"
+jni_functions["GetFieldID"] = "GetFieldID"
 jni_functions["GetObjectField"] = "GetObjectField"
 jni_functions["GetBooleanField"] = "GetBooleanField"
 jni_functions["GetByteField"] = "GetByteField"

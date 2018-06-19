@@ -1,7 +1,5 @@
 
-import logging
 from .base import SimSootExpr
-
 
 class SimSootExpr_StaticFieldRef(SimSootExpr):
     def _execute(self):

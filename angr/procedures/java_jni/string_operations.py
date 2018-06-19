@@ -6,7 +6,7 @@ from claripy import StringV, StrLen
 from . import JNISimProcedure
 from ...engines.soot.values import SimSootValue_StringRef
 
-l = logging.getLogger('angr.procedures.java_jni.string_operations')
+l = logging.getLogger(name=__name__)
 
 # pylint: disable=arguments-differ,unused-argument
 

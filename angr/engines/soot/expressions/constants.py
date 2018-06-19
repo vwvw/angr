@@ -3,8 +3,7 @@ from archinfo.arch_soot import SootClassDescriptor, SootNullConstant
 
 from ..values import SimSootValue_StringRef
 from .base import SimSootExpr
-from ..values import SimSootValue_ThisRef
-from ..values import SimSootValue_InstanceFieldRef
+from ..values import SimSootValue_InstanceFieldRef, SimSootValue_StringRef
 from ..values.constants import SimSootValue_ClassConstant
 
 

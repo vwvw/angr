@@ -12,6 +12,7 @@ from ...sim_type import SimTypeFunction
 from ...state_plugins.sim_action_object import SimActionObject
 import itertools
 import collections
+from claripy import BVV
 
 l = logging.getLogger(name=__name__)
 

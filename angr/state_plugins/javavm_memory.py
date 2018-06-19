@@ -13,16 +13,11 @@ from ..errors import SimMemoryAddressError, SimUnsatError
 from ..sim_state import SimState
 from ..storage.memory import SimMemory
 from .keyvalue_memory import SimKeyValueMemory
-from .plugin import SimStatePlugin
-from ..errors import SimUnsatError, SimMemoryAddressError
-from .. import concretization_strategies
-from .. import sim_options as options
-
-l = logging.getLogger(name=__name__)
 
 MAX_ARRAY_SIZE = 1000   # FIXME arbitrarily chosen limit
 
-MAX_ARRAY_SIZE = 1000 # FIXME arbitrarily chosen limit
+l = logging.getLogger(name=__name__)
+
 
 class SimJavaVmMemory(SimMemory):
     def __init__(self, memory_id="mem", stack=None, heap=None, vm_static_table=None,
@@ -129,6 +124,10 @@ class SimJavaVmMemory(SimMemory):
                         "".format(field_ref=addr, init_value=value))
                 self.store(addr, value)
             return value
+
+        elif type(addr) is SimSootValue_StringRef:
+            return self.heap.load(addr.id, none_if_missing=True)
+
         else:
             l.error("Unknown addr type %s", addr)
             return None

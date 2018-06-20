@@ -3,7 +3,7 @@ import logging
 
 from . import JNISimProcedure
 
-l = logging.getLogger('angr.procedures.java_jni.global_and_local_references')
+l = logging.getLogger(name=__name__)
 
 # pylint: disable=arguments-differ,unused-argument
 

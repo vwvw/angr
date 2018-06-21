@@ -3,7 +3,7 @@ import logging
 
 from .base import SimSootExpr
 
-l = logging.getLogger('angr.engines.soot.expressions.phi')
+l = logging.getLogger(name=__name__)
 
 
 class SimSootExpr_Phi(SimSootExpr):

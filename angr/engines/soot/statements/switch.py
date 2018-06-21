@@ -5,7 +5,7 @@ from claripy import Or
 
 from .base import SimSootStmt
 
-l = logging.getLogger('angr.engines.soot.statements.switch')
+l = logging.getLogger(name=__name__)
 
 class SwitchBase(SimSootStmt):
     def _execute(self):

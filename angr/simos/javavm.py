@@ -38,9 +38,9 @@ class SimJavaVM(SimOS):
         super(SimJavaVM, self).__init__(*args, name='JavaVM', **kwargs)
 
         # are native libraries called via JNI?
-        self.jni_support = self.project.loader.main_object.jni_support
+        self.is_javavm_with_jni_support = self.project.loader.main_object.jni_support
 
-        if self.jni_support:
+        if self.is_javavm_with_jni_support:
 
             # Step 1: find all native libs
             self.native_libs = [obj for obj in self.project.loader.initial_load_objects

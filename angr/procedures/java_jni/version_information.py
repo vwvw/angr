@@ -1,7 +1,6 @@
-
 from . import JNISimProcedure
 
-# pylint: disable=arguments-differ,unused-argument
+
 
 class GetVersion(JNISimProcedure):
 

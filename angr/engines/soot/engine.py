@@ -25,9 +25,7 @@ class SimEngineSoot(SimEngine):
 
     def __init__(self, project=None, **kwargs):
         super(SimEngineSoot, self).__init__()
-
         self.project = project
-        self.javavm = self.project.simos
 
     def lift(self, addr=None, the_binary=None, **kwargs):
         assert isinstance(addr, SootAddressDescriptor)
@@ -225,19 +223,18 @@ class SimEngineSoot(SimEngine):
         state.callstack.ret_addr = ret_addr
 
         # push new stack frame
-        javavm_memory = state.get_javavm_view_of_plugin('memory')
-        javavm_memory.push_stack_frame()
+        state.javavm_memory.push_stack_frame()
 
         # setup arguments
         if args:
             if isinstance(args[0][0], SimSootValue_ThisRef):
                 this_ref, this_ref_type = args.pop(0)
                 local = SimSootValue_Local("this", this_ref_type)
-                javavm_memory.store(local, this_ref)
+                state.javavm_memory.store(local, this_ref)
 
             for idx, (value, value_type) in enumerate(args):
                 param_ref = SimSootValue_ParamRef(idx, value_type)
-                javavm_memory.store(param_ref, value)
+                state.javavm_memory.store(param_ref, value)
 
     @staticmethod
     def _is_method_beginning(addr):

@@ -9,7 +9,6 @@ from .plugin import SimStatePlugin
 
 l = logging.getLogger(name=__name__)
 
-
 class SimJavaVmClassloader(SimStatePlugin):
     """
     JavaVM Classloader is used as an interface for resolving and initializing
@@ -110,24 +109,38 @@ class SimJavaVmClassloader(SimStatePlugin):
         """
         return self._initialized_classes
 
-    def get_class(self, name):
-        try:
-            return self.state.project.loader.main_object.classes[name]
-        except KeyError:
-            return None
-    
-    def get_superclass(self, name):
-        base_class  = self.get_class(name)
-        if base_class:
-            return self.get_class(base_class.super_class)
-        return None
+        if self.is_class_initialized(class_):
+            return
 
-    def get_class_hierarchy(self, name):
-        class_ = self.get_class(name)
-        while class_:
-            yield class_
-            class_ = self.get_class(class_.super_class)
+        if not class_.is_loaded:
+            l.warning("Class %r cannot get initialized. It's not loaded in CLE." % class_)
+            return
 
+        l.debug("Initialize class %r\n\n", class_)
+        self.initialized_classes.add(class_)
+
+        clinit_method = resolve_method(self.state, '<clinit>', class_.name, 
+                                       include_superclasses=False)
+        if clinit_method.is_loaded: 
+            javavm_simos = self.state.project.simos
+            clinit_state = javavm_simos.state_call(addr=SootAddressDescriptor(clinit_method, 0, 0),
+                                                   base_state=self.state,
+                                                   ret_addr=SootAddressTerminator())
+            simgr = self.state.project.factory.simgr(clinit_state)
+            l.info("Run initializer <clinit> ...")
+            simgr.run()
+            l.debug("Run initializer <clinit> ... done \n\n")
+            # The only thing that can change in the class initializer are static fields
+            # => update vm_static_table and the heap
+            self.state.memory.vm_static_table = simgr.deadended[0].memory.vm_static_table.copy()
+            self.state.memory.heap = simgr.deadended[0].memory.heap.copy()
+
+    @property
+    def initialized_classes(self):
+        """
+        List of all initialized classes.
+        """
+        return self._initialized_classes
 
     @SimStatePlugin.memo
     def copy(self, memo): # pylint: disable=unused-argument

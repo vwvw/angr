@@ -3,7 +3,13 @@ from . import JNISimProcedure
 from ...engines.soot.values import SimSootValue_ThisRef
 from .method_calls import CallMethodBase
 
+<<<<<<< 96d5aea7080d02bba276ac17d0d38e272c8e190a
 # pylint: disable=arguments-differ,unused-argument
+=======
+from ...engines.soot.values import SimSootValue_ThisRef
+from method_calls import CallMethodBase
+from archinfo.arch_soot import SootClassDescriptor
+>>>>>>> Improved management of method- / class descriptor and the classloader
 
 #
 # GetObjectClass
@@ -15,6 +21,10 @@ class GetObjectClass(JNISimProcedure):
 
     def run(self, ptr_env, obj_):
         obj = self.state.jni_references.lookup(obj_)
+<<<<<<< 96d5aea7080d02bba276ac17d0d38e272c8e190a
+=======
+        # return class constant of object type
+>>>>>>> Improved management of method- / class descriptor and the classloader
         obj_class = self.state.javavm_classloader.get_class(obj.type)
         return self.state.jni_references.create_new_reference(obj_class)
 

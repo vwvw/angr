@@ -6,6 +6,7 @@ from archinfo.arch_soot import (ArchSoot, SootAddressDescriptor,
                                 SootNullConstant)
 from claripy import BVS, BVV, StringS, StringV, FSORT_FLOAT, FSORT_DOUBLE, FPV
 
+<<<<<<< c1c20aa97ee0874111b921a88b4b1ce62bc9db49
 from ..calling_conventions import DEFAULT_CC, SimCCSoot
 from ..engines.soot import SimEngineSoot
 from ..engines.soot.expressions import SimSootExpr_NewArray
@@ -22,14 +23,26 @@ from ..engines.soot.values.arrayref import SimSootValue_ArrayRef
 from ..engines.soot.values.local import SimSootValue_Local
 from ..engines.soot.values.thisref import SimSootValue_ThisRef
 from ..engines.soot.values.instancefieldref import SimSootValue_InstanceFieldRef
+=======
+from ..calling_conventions import DEFAULT_CC
+>>>>>>> Add explicit base reference for arrays
 from ..engines.soot import SimEngineSoot
+from ..engines.soot.expressions import SimSootExpr_NewArray
+from ..engines.soot.values import (SimSootValue_ArrayBaseRef,
+                                   SimSootValue_ArrayRef,
+                                   SimSootValue_InstanceFieldRef,
+                                   SimSootValue_Local, SimSootValue_ThisRef)
 from ..errors import AngrSimOSError
 from ..procedures.java_jni import jni_functions
 from ..sim_state import SimState
 from ..sim_type import SimTypeFunction, SimTypeInt, SimTypeReg
 from .simos import SimOS
 
+<<<<<<< c1c20aa97ee0874111b921a88b4b1ce62bc9db49
 l = logging.getLogger(name=__name__)
+=======
+l = logging.getLogger('angr.simos.JavaVM')
+>>>>>>> Add explicit base reference for arrays
 
 class SimJavaVM(SimOS):
 

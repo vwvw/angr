@@ -47,10 +47,6 @@ class SimSootValue_ArrayBaseRef(SimSootValue):
     def __repr__(self):
         return self.id
 
-    @staticmethod
-    def get_arrayref_for_idx(base, idx):
-        return SimSootValue_ArrayRef(base.heap_alloc_id, idx, base.type, base.size)
-    
     @classmethod
     def from_sootvalue(cls, soot_value, state):
         raise NotImplementedError()

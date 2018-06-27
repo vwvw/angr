@@ -22,9 +22,7 @@ from ..engines.soot.values.arrayref import SimSootValue_ArrayRef
 from ..engines.soot.values.local import SimSootValue_Local
 from ..engines.soot.values.thisref import SimSootValue_ThisRef
 from ..engines.soot.values.instancefieldref import SimSootValue_InstanceFieldRef
-=======
 from ..calling_conventions import DEFAULT_CC, SimCCSoot
->>>>>>> Improve handling of method calls
 from ..engines.soot import SimEngineSoot
 from ..engines.soot.expressions import SimSootExpr_NewArray
 from ..engines.soot.values import (SimSootValue_ArrayBaseRef,

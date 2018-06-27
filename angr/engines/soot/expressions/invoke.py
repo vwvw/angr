@@ -7,6 +7,18 @@ from ..exceptions import SootMethodNotLoadedException
 from .base import SimSootExpr
 
 
+class JavaArgument(object):
+
+    __slots__ = ['type', 'value']
+
+    def __init__(self, value, type_):
+        self.type = type_
+        self.value = value
+    
+    def __repr__(self):
+        return str(self.value)
+
+
 class InvokeBase(SimSootExpr):
     def __init__(self, expr, state):
         super(InvokeBase, self).__init__(expr, state)

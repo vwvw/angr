@@ -3,7 +3,7 @@ import logging
 
 from .base import SimSootStmt
 
-l = logging.getLogger('angr.engines.soot.statements.if')
+l = logging.getLogger(name=__name__)
 
 
 class SimSootStmt_If(SimSootStmt):

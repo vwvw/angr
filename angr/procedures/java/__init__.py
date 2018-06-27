@@ -5,6 +5,8 @@ from ...sim_procedure import SimProcedure
 from ...engines.soot.values import SimSootValue_Local, SimSootValue_ParamRef, translate_value
 from ...engines.soot.expressions import translate_expr
 
+from ...engines.soot.values import SimSootValue_Local, SimSootValue_ParamRef
+
 
 class JavaSimProcedure(SimProcedure):
 

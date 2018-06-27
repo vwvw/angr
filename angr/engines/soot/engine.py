@@ -211,31 +211,6 @@ class SimEngineSoot(SimEngine):
 
         return proc
 
-    @classmethod
-    def setup_callsite(cls, state, ret_addr, args):
-        #
-        #   Merge with _prepare_call_state
-        #   If ret_addr != None: ...
-        #   If args != None: ...
-
-        # push new callstack frame
-        state.callstack.push(state.callstack.copy())
-        state.callstack.ret_addr = ret_addr
-
-        # push new stack frame
-        state.javavm_memory.push_stack_frame()
-
-        # setup arguments
-        if args:
-            if isinstance(args[0][0], SimSootValue_ThisRef):
-                this_ref, this_ref_type = args.pop(0)
-                local = SimSootValue_Local("this", this_ref_type)
-                state.javavm_memory.store(local, this_ref)
-
-            for idx, (value, value_type) in enumerate(args):
-                param_ref = SimSootValue_ParamRef(idx, value_type)
-                state.javavm_memory.store(param_ref, value)
-
     @staticmethod
     def _is_method_beginning(addr):
         return addr.block_idx == 0 and addr.stmt_idx == 0
@@ -307,12 +282,12 @@ class SimEngineSoot(SimEngine):
         all_args += ie.args
         for arg in all_args:
             arg_cls_name = arg.__class__.__name__
-            # TODO is this correct?
             if "Constant" not in arg_cls_name:
-                v = state.memory.load(translate_value(arg, state), frame=1)
+                arg_value = state.memory.load(translate_value(arg, state))
             else:
-                v = translate_expr(arg, state).expr
-            yield (v, arg.type)
+                arg_value = translate_expr(arg, state).expr
+            args += [ (arg_value, arg.type) ]
+        return args
 
     @staticmethod
     def prepare_return_state(state, ret_value=None):
@@ -377,7 +352,6 @@ class SimEngineSoot(SimEngine):
         ret_state.regs._ip = ret_state.callstack.ret_addr
         ret_state.scratch.guard = ret_state.se.true
         ret_state.history.jumpkind = 'Ijk_Ret'
-
         # if available, lookup the return value in native memory
         ret_var = ret_state.callstack.invoke_return_variable
         if ret_var is not None:
@@ -403,6 +377,9 @@ class SimEngineSoot(SimEngine):
         # teardown return state
         SimEngineSoot.prepare_return_state(ret_state, ret_value)
 
+        # teardown return state
+        SimEngineSoot.prepare_return_state(ret_state, ret_value)
+        
         # finally, delete all local references
         ret_state.jni_references.clear_local_references()
 

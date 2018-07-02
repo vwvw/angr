@@ -770,7 +770,7 @@ class CFGJob:
                                             CFGUtils.loc_to_str(self.addr),
                                             CFGUtils.loc_to_str(self.func_addr)
                                             )
-
+                                            
     def __eq__(self, other):
         return self.addr == other.addr and \
                 self.func_addr == other.func_addr and \
@@ -928,7 +928,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
             else:
                 l.warning('"regions", "start", and "end" are all specified. Ignoring "start" and "end".')
 
-        self._regions = None  # type: AVLTree
+        self._regions = None 
         self._regions_size = None  # type: int
         self._initialize_regions(exclude_sparse_regions, skip_specific_regions, force_segment, base_state,
                                  initial_regions=regions)
@@ -959,10 +959,9 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
         self._data_type_guessing_handlers = [ ] if data_type_guessing_handlers is None else data_type_guessing_handlers
 
-        if int in self.project.arch.address_types:
-            l.debug("CFG recovery covers %d regions:", len(self._regions))
-            for start_addr, end_addr in self._regions.iter_items():
-                l.debug("... %#x - %#x", start_addr, end_addr)
+        l.debug("CFG recovery covers %d regions:", len(self._regions))
+        for start_addr in self._regions:
+            l.debug("... %#x - %#x", start_addr, self._regions[start_addr])
 
         # A mapping between address and the actual data in memory
         self._memory_data = { }
@@ -1072,7 +1071,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                                             force_segment=force_segment
                                             )
         if exclude_sparse_regions:
-            new_regions = []
+            new_regions = [ ]
             for start_, end_ in regions:
                 if not self._is_region_extremely_sparse(start_, end_, base_state=base_state):
                     new_regions.append((start_, end_))
@@ -1080,25 +1079,18 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         if skip_specific_regions:
             if base_state is not None:
                 l.warning("You specified both base_state and skip_specific_regions. They may conflict with each other.")
-            new_regions = []
+            new_regions = [ ]
             for start_, end_ in regions:
                 if not self._should_skip_region(start_):
                     new_regions.append((start_, end_))
             regions = new_regions
-
         if not regions:
-            raise AngrCFGError(
-                "Regions are empty or all regions are skipped. You may want to manually specify regions."
-            )
-
+            raise AngrCFGError("Regions are empty or all regions are skipped. You may want to manually specify regions.")
         # sort the regions
         regions = sorted(regions, key=lambda x: x[0])
-
         self._regions_size = sum((b - a) for a, b in regions)
-        # initialize self._regions as an AVL tree
-        self._regions = AVLTree()
-        for start_, end_ in regions:
-            self._regions.insert(start_, end_)
+        # initial self._regions as a sorted dict
+        self._regions = SortedDict(regions)
 
     def _inside_regions(self, address):
         """
@@ -1330,13 +1322,16 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
     def _pre_analysis_common(self):
 
+        # Call _initialize_cfg() before self.functions is used.
+        self._initialize_cfg()
+
         # Initialize variables used during analysis
         self._pending_jobs = PendingJobs(self.functions, self._deregister_analysis_job)
         self._traced_addresses = set()
         self._function_returns = defaultdict(set)
 
     def _pre_analysis(self):
-
+        
         self._pre_analysis_common()
 
         # Sadly, not all calls to functions are explicitly made by call
@@ -1379,14 +1374,11 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
             # register the job to function `sp`
             self._register_analysis_job(sp, job)
 
-<<<<<<< 8baa9d4fa4b1c5d671a539aaf007b67450e8edad
         self._updated_nonreturning_functions = set()
 
         self._nodes = {}
         self._nodes_by_addr = defaultdict(list)
 
-=======
->>>>>>> Preliminary Java support.
         if self._use_function_prologues:
             self._function_prologue_addrs = sorted(self._func_addrs_from_prologues())
             # make a copy of those prologue addresses, so that we can pop from the list
@@ -1423,22 +1415,10 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         # current_function_addr = job.func_addr
         # addr = job.addr
 
-<<<<<<< 8baa9d4fa4b1c5d671a539aaf007b67450e8edad
         # if current_function_addr != -1:
         #    l.debug("Tracing new exit %#x in function %#x", addr, current_function_addr)
         # else:
         #    l.debug("Tracing new exit %#x", addr)
-=======
-        if current_function_addr != -1:
-            l.debug("Tracing new exit %s in function %s",
-                    CFGUtils.loc_to_str(addr),
-                    CFGUtils.loc_to_str(current_function_addr)
-                    )
-        else:
-            l.debug("Tracing new exit %s",
-                    CFGUtils.loc_to_str(addr)
-                    )
->>>>>>> Preliminary Java support.
 
         jobs = self._scan_block(job)
 
@@ -1596,16 +1576,11 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         for function in self.kb.functions.values():
             function.mark_nonreturning_calls_endpoints()
 
-<<<<<<< 8baa9d4fa4b1c5d671a539aaf007b67450e8edad
-        # optional: remove functions that must be alignments
-        self.remove_function_alignments()
-=======
         if self.project.arch.name != 'Soot':
             self.make_functions()
 
-            # optional: remove functions that must be alignments
-            self.remove_function_alignments()
->>>>>>> Preliminary Java support.
+        # optional: remove functions that must be alignments
+        self.remove_function_alignments()
 
         # make return edges
         self._make_return_edges()
@@ -1625,9 +1600,9 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                         if sec.vaddr not in self.memory_data:
                             self.memory_data[sec.vaddr] = MemoryData(sec.vaddr, 0, 'unknown', None, None, None, None)
 
-            r = True
-            while r:
-                r = self._tidy_data_references()
+        r = True
+        while r:
+            r = self._tidy_data_references()
 
         CFGBase._post_analysis(self)
 
@@ -1793,63 +1768,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
         return entries
 
-<<<<<<< 8baa9d4fa4b1c5d671a539aaf007b67450e8edad
     def _scan_irsb(self, cfg_job, current_func_addr):
-=======
-    def _irsb_get_successors(self, addr, function_addr, block, cfg_node):
-        """
-
-        :return:
-        """
-
-        irsb = block
-
-        # IRSB is only used once per CFGNode. We should be able to clean up the CFGNode here in order to save memory
-        cfg_node.irsb = None
-
-        self._process_block_arch_specific(addr, irsb, function_addr)
-
-        # Scan the basic block to collect data references
-        if self._collect_data_ref:
-            self._collect_data_references(irsb, addr)
-
-        # Get all possible successors
-        irsb_next, jumpkind = irsb.next, irsb.jumpkind
-        successors = []
-
-        last_ins_addr = None
-        ins_addr = addr
-        for i, stmt in enumerate(irsb.statements):
-            if isinstance(stmt, pyvex.IRStmt.Exit):
-                successors.append((i,
-                                   last_ins_addr if self.project.arch.branch_delay_slot else ins_addr,
-                                   stmt.dst,
-                                   stmt.jumpkind
-                                   )
-                                  )
-            elif isinstance(stmt, pyvex.IRStmt.IMark):
-                last_ins_addr = ins_addr
-                ins_addr = stmt.addr + stmt.delta
-
-        successors.append(('default',
-                           last_ins_addr if self.project.arch.branch_delay_slot else ins_addr, irsb_next, jumpkind)
-                          )
-
-        successors = self._post_process_successors(addr, successors)
-
-        return successors
-
-    def _block_get_successors(self, addr, function_addr, block, cfg_node):
-        """
-
-        :return:
-        """
-
-        return self._irsb_get_successors(addr, function_addr, block, cfg_node)
-
-    def _scan_irsb(self, addr, current_function_addr, previous_jumpkind, previous_src_node, previous_src_ins_addr,
-                   previous_src_stmt_idx):
->>>>>>> Preliminary Java support.
         """
         Generate a list of successors (generating them each as entries) to IRSB.
         Updates previous CFG nodes with edges.
@@ -1860,14 +1779,10 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         :rtype: list
         """
 
-<<<<<<< 8baa9d4fa4b1c5d671a539aaf007b67450e8edad
         addr, function_addr, cfg_node, irsb = self._generate_cfgnode(cfg_job, current_func_addr)
 
         # Add edges going to this node in function graphs
         cfg_job.apply_function_edges(self, clear=True)
-=======
-        addr, function_addr, cfg_node, block = self._generate_cfgnode(addr, current_function_addr)
->>>>>>> Preliminary Java support.
 
         # function_addr and current_function_addr can be different. e.g. when tracing an optimized tail-call that jumps
         # into another function that has been identified before.
@@ -1893,7 +1808,6 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
             # Mark the address as traced
             self._traced_addresses.add(real_addr)
 
-<<<<<<< 8baa9d4fa4b1c5d671a539aaf007b67450e8edad
         # irsb cannot be None here
         # assert irsb is not None
 
@@ -1936,10 +1850,6 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         successors.append(('default',
                            last_ins_addr if self.project.arch.branch_delay_slot else ins_addr, irsb_next, jumpkind)
                           )
-=======
-        # Get successors
-        successors = self._block_get_successors(addr, current_function_addr, block, cfg_node)
->>>>>>> Preliminary Java support.
 
         entries = [ ]
 
@@ -1989,7 +1899,6 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         :rtype:                     list
         """
 
-<<<<<<< 8baa9d4fa4b1c5d671a539aaf007b67450e8edad
         if type(target) is pyvex.IRExpr.Const:  # pylint: disable=unidiomatic-typecheck
             target_addr = target.con.value
         elif type(target) in (pyvex.IRConst.U32, pyvex.IRConst.U64):  # pylint: disable=unidiomatic-typecheck
@@ -1998,9 +1907,6 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
             target_addr = target
         else:
             target_addr = None
-=======
-        target_addr = self._create_entries_filter_target(target)
->>>>>>> Preliminary Java support.
 
         jobs = [ ]
         is_syscall = jumpkind.startswith("Ijk_Sys")

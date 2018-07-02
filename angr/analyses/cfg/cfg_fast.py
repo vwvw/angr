@@ -18,12 +18,7 @@ from .memory_data import MemoryData
 from .cfg_arch_options import CFGArchOptions
 from .cfg_base import CFGBase
 from .cfg_node import CFGNode
-<<<<<<< 6834cbf7956e38068d30e8d5a29519443b4ef06e
 from ..forward_analysis import ForwardAnalysis, AngrSkipJobNotice
-=======
-from ..forward_analysis import ForwardAnalysis
-from .cfg_utils import CFGUtils
->>>>>>> Preliminary Java support.
 from ... import sim_options as o
 from ...errors import (AngrCFGError, SimEngineError, SimMemoryError, SimTranslationError, SimValueError,
                        AngrUnsupportedSyscallError
@@ -1005,10 +1000,9 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
         self._data_type_guessing_handlers = [ ] if data_type_guessing_handlers is None else data_type_guessing_handlers
 
-        if int in self.project.arch.address_types:
-            l.debug("CFG recovery covers %d regions:", len(self._regions))
-            for start_addr, end_addr in self._regions.iter_items():
-                l.debug("... %#x - %#x", start_addr, end_addr)
+        l.debug("CFG recovery covers %d regions:", len(self._regions))
+        for start_addr in self._regions:
+            l.debug("... %#x - %#x", start_addr, self._regions[start_addr])
 
         # A mapping between address and the actual data in memory
         self._memory_data = { }
@@ -1663,9 +1657,9 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                         if sec.vaddr not in self.memory_data:
                             self.memory_data[sec.vaddr] = MemoryData(sec.vaddr, 0, 'unknown', None, None, None, None)
 
-            r = True
-            while r:
-                r = self._tidy_data_references()
+        r = True
+        while r:
+            r = self._tidy_data_references()
 
         CFGBase._post_analysis(self)
 

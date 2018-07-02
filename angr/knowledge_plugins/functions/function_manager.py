@@ -12,60 +12,37 @@ l = logging.getLogger(name=__name__)
 
 
 class FunctionDict(SortedDict):
-    """
-    FunctionDict is a dict where the keys are function starting addresses and
-    map to the associated :class:`Function`.
-    """
-    def __init__(self, backref, key_types=None, *args, **kwargs):
-        self._backref = backref
-        self._avltree = bintrees.AVLTree()
-        self._key_types = key_types
+		"""
+		FunctionDict is a dict where the keys are function starting addresses and
+		map to the associated :class:`Function`.
+		"""
+		def __init__(self, backref, *args, **kwargs):
+				self._backref = backref
+				self._key_types = kwargs.pop('key_types', (int, long))
+				super(FunctionDict, self).__init__(*args, **kwargs)
 
-        if self._key_types is None:
-            self._key_types = (int, long)
+		def __getitem__(self, addr):
+				try:
+						return super(FunctionDict, self).__getitem__(addr)
+				except KeyError:
+						if not isinstance(addr, (int, long)):
+								raise TypeError("FunctionDict only supports int as key type")
+						t = Function(self._backref, addr)
+						self[addr] = t
+						self._backref._function_added(t)
+						return t
 
-        super(FunctionDict, self).__init__(*args, **kwargs)
+		def floor_addr(self, addr):
+				try:
+						return next(self.irange(maximum=addr, reverse=True))
+				except StopIteration:
+						raise KeyError(addr)
 
-    def __missing__(self, key):
-        if isinstance(key, self._key_types):
-            addr = key
-        else:
-            raise ValueError("FunctionDict.__missing__ only supports the following types of keys: %s."
-                             % str(self._key_types))
-
-        t = Function(self._backref, addr)
-        self[addr] = t
-        return t
-
-    def __setitem__(self, addr, func):
-        self._avltree[addr] = func
-        super(FunctionDict, self).__setitem__(addr, func)
-  
-    def __getitem__(self, addr):
-        try:
-            return super(FunctionDict, self).__getitem__(addr)
-        except KeyError:
-            if not isinstance(addr, int):
-                raise TypeError("FunctionDict only supports int as key type")
-            t = Function(self._backref, addr)
-            self[addr] = t
-            self._backref._function_added(t)
-            return t
-
-    def get(self, addr):
-        return super(FunctionDict, self).__getitem__(addr)
-
-    def floor_addr(self, addr):
-        try:
-            return next(self.irange(maximum=addr, reverse=True))
-        except StopIteration:
-            raise KeyError(addr)
-
-    def ceiling_addr(self, addr):
-        try:
-            return next(self.irange(minimum=addr, reverse=False))
-        except StopIteration:
-            raise KeyError(addr)
+		def ceiling_addr(self, addr):
+				try:
+						return next(self.irange(minimum=addr, reverse=False))
+				except StopIteration:
+						raise KeyError(addr)
 
 
 class FunctionManager(KnowledgeBasePlugin, collections.Mapping):

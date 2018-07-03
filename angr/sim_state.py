@@ -322,7 +322,6 @@ class SimState(PluginHub, ana.Storable):
     def arch(self, v):
         self._arch = v
 
-
     #
     # Plugin accessors
     #

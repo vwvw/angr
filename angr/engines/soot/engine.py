@@ -210,7 +210,7 @@ class SimEngineSoot(SimEngine):
         self.project._sim_procedures[addr] = proc
 
         return proc
-
+    
     @staticmethod
     def _is_method_beginning(addr):
         return addr.block_idx == 0 and addr.stmt_idx == 0

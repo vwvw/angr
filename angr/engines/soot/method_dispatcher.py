@@ -5,7 +5,7 @@ from archinfo.arch_soot import SootMethodDescriptor
 
 from .exceptions import SootMethodNotLoadedException
 
-l = logging.getLogger('angr.engines.soot.method_dispatcher')
+l = logging.getLogger(name=__name__)
 
 
 def resolve_method(state, method_name, class_name, params=(),

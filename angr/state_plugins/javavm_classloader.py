@@ -102,38 +102,6 @@ class SimJavaVmClassloader(SimStatePlugin):
         else:
             l.debug("Class initializer <clinit> is not loaded in CLE. Skip initializiation.")
 
-    @property
-    def initialized_classes(self):
-        """
-        List of all initialized classes.
-        """
-        return self._initialized_classes
-
-        if self.is_class_initialized(class_):
-            return
-
-        if not class_.is_loaded:
-            l.warning("Class %r cannot get initialized. It's not loaded in CLE." % class_)
-            return
-
-        l.debug("Initialize class %r\n\n", class_)
-        self.initialized_classes.add(class_)
-
-        clinit_method = resolve_method(self.state, '<clinit>', class_.name, 
-                                       include_superclasses=False)
-        if clinit_method.is_loaded: 
-            javavm_simos = self.state.project.simos
-            clinit_state = javavm_simos.state_call(addr=SootAddressDescriptor(clinit_method, 0, 0),
-                                                   base_state=self.state,
-                                                   ret_addr=SootAddressTerminator())
-            simgr = self.state.project.factory.simgr(clinit_state)
-            l.info("Run initializer <clinit> ...")
-            simgr.run()
-            l.debug("Run initializer <clinit> ... done \n\n")
-            # The only thing that can change in the class initializer are static fields
-            # => update vm_static_table and the heap
-            self.state.memory.vm_static_table = simgr.deadended[0].memory.vm_static_table.copy()
-            self.state.memory.heap = simgr.deadended[0].memory.heap.copy()
 
     @property
     def initialized_classes(self):

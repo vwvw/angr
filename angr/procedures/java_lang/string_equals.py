@@ -4,7 +4,7 @@ from ..java import JavaSimProcedure
 
 import claripy
 
-l = logging.getLogger('angr.procedures.java.string.equals')
+l = logging.getLogger(name=__name__)
 
 
 class StringEquals(JavaSimProcedure):

@@ -28,7 +28,8 @@ from ..engines.soot.expressions import SimSootExpr_NewArray
 from ..engines.soot.values import (SimSootValue_ArrayBaseRef,
                                    SimSootValue_ArrayRef,
                                    SimSootValue_InstanceFieldRef,
-                                   SimSootValue_Local, SimSootValue_ThisRef)
+                                   SimSootValue_Local, SimSootValue_StringRef,
+                                   SimSootValue_ThisRef)
 from ..errors import AngrSimOSError
 from ..procedures.java_jni import jni_functions
 from ..sim_state import SimState
@@ -108,71 +109,6 @@ class SimJavaVM(SimOS):
     # States
     #
 
-        # is the binary using JNI libraries?
-        self.is_javavm_with_jni_support = self.project.loader.main_object.jni_support
-
-        if self.is_javavm_with_jni_support:
-            # Step 1: find all native libs
-            self.native_libs = [obj for obj in self.project.loader.initial_load_objects
-                                    if not isinstance(obj.arch, ArchSoot)]
-
-            if len(self.native_libs) == 0:
-                raise AngrSimOSError("No JNI lib was loaded. Is the jni_libs_ld_path set correctly?")
-
-            # Step 2: determine and set the native SimOS
-            from . import os_mapping  # import dynamically, since the JavaVM class is part of the os_mapping dict
-            # for each native library get the Arch
-            native_libs_arch = set([obj.arch.__class__ for obj in self.native_libs])
-            # for each native library get the compatible SimOS
-            native_libs_simos = set([os_mapping[obj.os] for obj in self.native_libs])
-            # show warning, if more than one SimOS or Arch would be required
-            if len(native_libs_simos) > 1 or len(native_libs_arch) > 1:
-                l.warning("Native libraries appear to require different SimOS's (%s) or Arch's (%s).",
-                          native_libs_simos, native_libs_arch)
-            # instantiate the native SimOS
-            if native_libs_simos:
-                self.native_simos = native_libs_simos.pop()(self.project)
-                self.native_simos.arch = native_libs_arch.pop()()
-                self.native_simos.configure_project()
-            else:
-                raise AngrSimOSError("Cannot instantiate SimOS for native libraries: No compatible SimOS found.")
-
-            # Step 3: Match static JNI symbols from native libs
-            self.native_symbols = {}
-            for lib in self.native_libs:
-                for name, symbol in lib.symbols_by_name.items():
-                    if name.startswith(u'Java'):
-                        self.native_symbols[name] = symbol
-
-            # Step 4: Allocate memory for the return hook
-            # => In order to return back from the Vex to the Soot engine, we hook the return address (see state_call).
-            self.native_return_hook_addr = self.project.loader.extern_object.allocate()
-            self.project.hook(self.native_return_hook_addr, prepare_native_return_state)
-
-            # Step 5: JNI interface functions
-            # => During runtime, native code can interact with the JVM through JNI interface functions.
-            #    For this, the native code gets the JNIEnv interface pointer with every native call, which
-            #    "[...] points to a location that contains a pointer to a function table" and "each entry in
-            #    the function table points to a JNI function."
-            # => In order to simulate this mechanism, we setup this structure in the native memory and hook all
-            #    table entries with SimProcedures, which then implement the effects of the interface functions.
-
-            # i)   First we allocate memory for the JNIEnv pointer and the function table
-            native_addr_size = self.native_simos.arch.bits/8
-            function_table_size = native_addr_size*len(jni_functions)
-            self.jni_env = self.project.loader.extern_object.allocate(native_addr_size)
-            self.jni_function_table = self.project.loader.extern_object.allocate(function_table_size)
-            # ii)  Then we hook each table entry with the corresponding sim procedure
-            for idx, jni_function in enumerate(jni_functions.values()):
-                addr = self.jni_function_table + idx * native_addr_size
-                self.project.hook(addr, SIM_PROCEDURES['java_jni'][jni_function]())
-            # iii) Lastly, we store the targets of the JNIEnv and function pointer in memory.
-            #      => This is done for a specific state (see state_blank)
-
-    #
-    # States
-    #
-
     def state_blank(self, addr=None, **kwargs): # pylint: disable=arguments-differ
 
         if not kwargs.get('mode', None): kwargs['mode'] = self.project._default_analysis_mode
@@ -230,17 +166,12 @@ class SimJavaVM(SimOS):
         # initialize class containing the current method
         state.javavm_classloader.get_class(state.addr.method.class_name, init_class=True)
 
-<<<<<<< 43840e16c6e412bdb683e7148db3835000a9c784
         # initialize the Java environment
         # TODO move this to `state_full_init?
         self.init_static_field(state, "java.lang.System", "in", "java.io.InputStream")
         self.init_static_field(state, "java.lang.System", "out", "java.io.PrintStream")
 
         return state
-=======
-    def state_entry(self, args=None, env=None, argc=None, **kwargs):
-        state = self.state_blank(**kwargs)
->>>>>>> Add default values for primitive types
 
     def state_entry(self, *args, **kwargs): # pylint: disable=arguments-differ
         """
@@ -273,6 +204,30 @@ class SimJavaVM(SimOS):
         str_sym = StringS("cmd_line_arg", max_length)
         state.solver.add(str_sym != StringV(""))
         state.memory.store(str_ref, str_sym)
+        # initialize class
+        state.javavm_classloader.get_class(state.addr.method.class_name, 
+                                           init_class=True)
+
+        return state
+
+    def state_entry(self, *args, **kwargs):
+        """
+        :param *args: List of JavaArgument values.
+        """
+        state = self.state_blank(**kwargs)
+        # create cmdline arguments for Java main method
+        if not args and state.addr.method.name == 'main' and \
+                        state.addr.method.params[0] == 'java.lang.String[]':
+            cmd_line_args = SimSootExpr_NewArray.new_array(state, "java.lang.String", BVS('argc', 32))
+            cmd_line_args.add_default_value_generator(self.create_cmd_line_arg)
+            args = [JavaArgument(cmd_line_args, "java.lang.String[]")]
+        # setup arguments
+        state = self.state_call(state.addr, *args, base_state=state)
+        return state
+
+    def create_cmd_line_arg(self, state):
+        str_ref = SimSootValue_StringRef(state.memory.get_new_uuid())
+        state.memory.store(str_ref, StringS("cmd_line_arg", 12))
         return str_ref
 
     def state_call(self, addr, *args, **kwargs):

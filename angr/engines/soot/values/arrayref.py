@@ -44,6 +44,25 @@ class SimSootValue_ArrayBaseRef(SimSootValue):
         """
         self._default_value_generator = generator
 
+    def get_default_value(self, state):
+        """
+        :return: Default value for an array element.
+        """
+        if hasattr(self, "default_value_generator"):
+            return self.default_value_generator(state)
+        else:
+            return state.project.simos.get_default_value_by_type(self.element_type)
+
+    def add_default_value_generator(self, generator):
+        """
+        Add a generator for overwriting the default behavior of generating array elements.
+
+        :param function generator: A function that get a sim state for input and returns
+                                   a default value for an array element, e.g.
+                                   `generator = lambda state: state.solver.BVV(0, 32)`
+        """
+        self.default_value_generator = generator
+
     def __repr__(self):
         return self.id
 

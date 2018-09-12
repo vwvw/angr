@@ -9,17 +9,13 @@ class SimSootExpr_IntConstant(SimSootExpr):
     def _execute(self):
         self.expr = self.state.se.BVV(self.expr.value, 32)
 
-class SimSootExpr_LongConstant(SimSootExpr):
-    def __init__(self, expr, state):
-        super(SimSootExpr_LongConstant, self).__init__(expr, state)
 
+class SimSootExpr_LongConstant(SimSootExpr):
     def _execute(self):
         self.expr = self.state.se.BVV(self.expr.value, 64)
 
-class SimSootExpr_StringConstant(SimSootExpr):
-    def __init__(self, expr, state):
-        super(SimSootExpr_StringConstant, self).__init__(expr, state)
 
+class SimSootExpr_StringConstant(SimSootExpr):
     def _execute(self):
         # We need to strip away the quotes introduced by soot in case of a string constant
         self.expr = self.state.se.StringV(self.expr.value.strip("\""))

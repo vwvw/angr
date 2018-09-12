@@ -7,25 +7,6 @@ from ..exceptions import SootMethodNotLoadedException
 from .base import SimSootExpr
 
 
-class JavaArgument(object):
-
-    __slots__ = ['value', 'type', 'is_this_ref']
-
-    def __init__(self, value, type_, is_this_ref=False):
-        """
-        :param value:    Value of the argument 
-        :param type_:    Type of the argument
-        :param this_ref: Indicates if argument, is 'this' reference, i.e.
-                         the object on which the method is invoked.
-        """
-        self.value = value
-        self.type = type_
-        self.is_this_ref = is_this_ref
-    
-    def __repr__(self):
-        return str(self.value)
-
-
 class InvokeBase(SimSootExpr):
     def __init__(self, expr, state):
         super(InvokeBase, self).__init__(expr, state)

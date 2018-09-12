@@ -1,15 +1,23 @@
 import logging
 
+<<<<<<< 61ecd7ae7bb74d1ff7784b6e0c44bd6941ee88b9
 from claripy import And
 
 from . import translate_value
 from ....errors import SimEngineError
 from .base import SimSootValue
 from .constants import SimSootValue_IntConstant
+=======
+>>>>>>> Cleanup
 from claripy import And
+
+from . import translate_value
 from ....errors import SimEngineError
+from .base import SimSootValue
+from .constants import SimSootValue_IntConstant
 
 l = logging.getLogger(name=__name__)
+
 
 
 class SimSootValue_ArrayBaseRef(SimSootValue):
@@ -46,25 +54,26 @@ class SimSootValue_ArrayBaseRef(SimSootValue):
 
     def get_default_value(self, state):
         """
-        :return: Default value for an array element.
+        :return: Default value for array elements.
         """
-        if hasattr(self, "default_value_generator"):
-            return self.default_value_generator(state)
+        if self._default_value_generator:
+            return self._default_value_generator(state)
         else:
             return state.project.simos.get_default_value_by_type(self.element_type)
 
     def add_default_value_generator(self, generator):
         """
-        Add a generator for overwriting the default behavior of generating array elements.
+        Add a generator for overwriting the default value for array elements.
 
-        :param function generator: A function that get a sim state for input and returns
-                                   a default value for an array element, e.g.
+        :param function generator: Function that given the state, returns a
+                                   default value for array elements, e.g.
                                    `generator = lambda state: state.solver.BVV(0, 32)`
         """
-        self.default_value_generator = generator
+        self._default_value_generator = generator
 
-    def __repr__(self):
-        return self.id
+    @classmethod
+    def from_sootvalue(cls, soot_value, state):
+        raise NotImplementedError()
 
     @classmethod
     def from_sootvalue(cls, soot_value, state):

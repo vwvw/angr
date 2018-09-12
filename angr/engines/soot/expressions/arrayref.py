@@ -3,7 +3,6 @@ import logging
 
 from ..values import SimSootValue_ArrayRef
 from .base import SimSootExpr
-from ..values import SimSootValue_ArrayRef, SimSootValue_IntConstant, SimSootValue_Local, SimSootValue_ArrayRef
 
 l = logging.getLogger('angr.engines.soot.expressions.arrayref')
 

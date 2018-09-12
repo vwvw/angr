@@ -10,11 +10,9 @@ from ...calling_conventions import DefaultCC
 from ...sim_procedure import SimProcedure
 from ...sim_type import SimTypeFunction
 from ...state_plugins.sim_action_object import SimActionObject
-import itertools
-import collections
-from claripy import BVV
 
 l = logging.getLogger(name=__name__)
+
 
 
 class JNISimProcedure(SimProcedure):
@@ -174,7 +172,6 @@ class JNISimProcedure(SimProcedure):
         for idx in range(str_len):
             str_byte = StrSubstr(idx, 1, string)
             self.state.memory.store(addr+idx, str_byte)
-
         # store terminating zero
         self.state.memory.store(len(string), BVV(0, 8))
 

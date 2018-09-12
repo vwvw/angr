@@ -37,8 +37,8 @@ class SimJavaVmMemory(SimMemory):
         self.max_array_size = MAX_ARRAY_SIZE
 
         # concretizing strategies
-        self.load_strategies = load_strategies
-        self.store_strategies = store_strategies
+        self.load_strategies = load_strategies if load_strategies else []
+        self.store_strategies = store_strategies if store_strategies else []
 
         # concretizing strategies
         self.load_strategies = load_strategies if load_strategies else []

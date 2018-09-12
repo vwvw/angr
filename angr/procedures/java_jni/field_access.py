@@ -8,7 +8,7 @@ from ...engines.soot.field_dispatcher import resolve_field
 from ...engines.soot.values import (SimSootValue_InstanceFieldRef,
                                     SimSootValue_StaticFieldRef)
 
-l = logging.getLogger('angr.procedures.java_jni.field_access')
+l = logging.getLogger(name=__name__)
 
 # pylint: disable=arguments-differ,unused-argument
 

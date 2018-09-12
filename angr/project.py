@@ -171,7 +171,6 @@ class Project:
         self._exclude_sim_procedures_func = exclude_sim_procedures_func
         self._exclude_sim_procedures_list = exclude_sim_procedures_list
         self._should_use_sim_procedures = use_sim_procedures
-        self._use_sim_procedures = use_sim_procedures
         self._ignore_functions = ignore_functions
         self._support_selfmodifying_code = support_selfmodifying_code
         self._translation_cache = translation_cache

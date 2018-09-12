@@ -9,6 +9,7 @@ from .plugin import SimStatePlugin
 
 l = logging.getLogger(name=__name__)
 
+
 class SimJavaVmClassloader(SimStatePlugin):
     """
     JavaVM Classloader is used as an interface for resolving and initializing
@@ -101,7 +102,6 @@ class SimJavaVmClassloader(SimStatePlugin):
             self.state.memory.heap = simgr.deadended[0].memory.heap.copy()
         else:
             l.debug("Class initializer <clinit> is not loaded in CLE. Skip initializiation.")
-
 
     @property
     def initialized_classes(self):

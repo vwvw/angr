@@ -7,6 +7,8 @@ l = logging.getLogger(name=__name__)
 
 # pylint: disable=arguments-differ,unused-argument
 
+# pylint: disable=arguments-differ,unused-argument
+
 #
 # NewGlobalRef / NewWeakGlobalRef
 #

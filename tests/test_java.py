@@ -69,6 +69,7 @@ def test_cmd_line_args():
     str2 = state2.solver.eval(args0_strval)
     assert 'secret_value' in [str1, str2]
 
+
 #
 # JNI Version Information
 #

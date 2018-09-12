@@ -13,10 +13,7 @@ from .sim_type import SimTypeFloat
 from .sim_type import SimTypeDouble
 from .sim_type import SimTypeReg
 from .sim_type import SimStruct
-from .sim_type import SimTypeInt
-
 from .state_plugins.sim_action_object import SimActionObject
-
 from .engines.soot.engine import SimEngineSoot
 
 l = logging.getLogger("angr.calling_conventions")

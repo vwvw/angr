@@ -5,7 +5,7 @@ import weakref
 
 import claripy
 import ana
-from archinfo import arch_from_id, Arch
+from archinfo import arch_from_id
 from archinfo.arch_soot import ArchSoot, SootAddressDescriptor
 from .misc.ux import deprecated
 from .misc.plugins import PluginHub, PluginPreset
@@ -55,13 +55,15 @@ class SimState(PluginHub, ana.Storable):
 
         # Arch
         if self._is_java_jni_project:
-            self._arch = { "soot": project.arch,  
-                           "vex" : project.simos.native_simos.arch }
-            # This flag indicates whether the current ip is a native address or a soot address descriptor.
-            # Note: We cannot solely rely on the ip, because the registers (storing the ip) are part of the
-            # plugins that are getting toggled (=> mutual dependence).
+            self._arch = { "soot" : project.arch,
+                           "vex"  : project.simos.native_simos.arch }
+            # This flag indicates whether the current ip is a native address or
+            # a soot address descriptor.
+            # Note: We cannot solely rely on the ip to make that decsision,
+            #       because the registers (storing the ip) are part of the
+            #       plugins that are getting toggled (=> mutual dependence).
             self.ip_is_soot_addr = False
-        else: 
+        else:
             self._arch = arch if arch is not None else project.arch.copy() if project is not None else None
             if type(self._arch) is str:
                 self._arch = arch_from_id(self._arch)
@@ -91,7 +93,7 @@ class SimState(PluginHub, ana.Storable):
             for p in plugins.itervalues():
                 p.init_state()
 
-        if not self.has_plugin('memory') and not self.has_plugin('memory_soot'):
+        if not self.has_plugin('memory'):
             # We don't set the memory endness because, unlike registers, it's hard to understand
             # which endness the data should be read.
 
@@ -104,7 +106,7 @@ class SimState(PluginHub, ana.Storable):
             if self._is_java_project and not self._is_java_jni_project:
                 sim_memory_cls = self.plugin_preset.request_plugin('javavm_memory')
                 sim_memory = sim_memory_cls(memory_id='mem')
-            
+
             elif o.ABSTRACT_MEMORY in self.options:
                 # We use SimAbstractMemory in static mode.
                 # Convert memory_backer into 'global' region.
@@ -137,8 +139,7 @@ class SimState(PluginHub, ana.Storable):
                 self.register_plugin('memory_soot', javavm_sim_memory)
                 self.register_plugin('memory_vex', native_sim_memory)
 
-        if not self.has_plugin('registers') and not self.has_plugin('registers_soot'):
-
+        if not self.has_plugin('registers'):
             # Same as for 'memory' plugin.
             if self.plugin_preset is None:
                 self.use_plugin_preset('default')
@@ -164,7 +165,7 @@ class SimState(PluginHub, ana.Storable):
             # Add registers plugin
             if not self._is_java_jni_project:
                 self.register_plugin('registers', sim_registers)
-            
+
             else:
                 # Analog to memory, we add two registers plugins
                 native_sim_registers = sim_registers
@@ -172,7 +173,6 @@ class SimState(PluginHub, ana.Storable):
                 javavm_sim_registers = javavm_sim_registers_cls(memory_id='reg')
                 self.register_plugin('registers_soot', javavm_sim_registers)
                 self.register_plugin('registers_vex', native_sim_registers)
-
 
         # OS name
         self.os_name = os_name
@@ -335,6 +335,13 @@ class SimState(PluginHub, ana.Storable):
             name = name+suffix if self.has_plugin(name+suffix) else name
         return super(SimState, self).get_plugin(name)
 
+    def has_plugin(self, name):
+        if self._is_java_jni_project:
+            # In case of the JavaVM with JNI support, also check for toggled plugins.
+            return super(SimState, self).has_plugin(name)  or \
+                   super(SimState, self).has_plugin(name+'_soot')
+        return super(SimState, self).has_plugin(name)
+
     def register_plugin(self, name, plugin, inhibit_init=False): # pylint: disable=arguments-differ
         #l.debug("Adding plugin %s of type %s", name, plugin.__class__.__name__)
         self._set_plugin_state(plugin, inhibit_init=inhibit_init)
@@ -352,7 +359,6 @@ class SimState(PluginHub, ana.Storable):
         if not inhibit_init:
             plugin.init_state()
 
-
     #
     # Java support
     #
@@ -367,30 +373,37 @@ class SimState(PluginHub, ana.Storable):
     @property
     def _is_java_jni_project(self):
         """
-        Indicates if the project's main binary is a Java Archive, which uses the JNI 
-        interface to interact with native libraries.
+        Indicates if the project's main binary is a Java Archive, which
+        interacts during its execution with native libraries (via JNI).
         """
         return self.project and isinstance(self.project.arch, ArchSoot) and \
                self.project.simos.is_javavm_with_jni_support
 
     @property
     def javavm_memory(self):
-        return self._get_javavm_view_of_plugin('memory')
+        """
+        In case of an JavaVM with JNI support, a state can store the memory
+        plugin twice; one for the native and one for the java view of the state.
+
+        :return: The JavaVM view of the memory plugin.
+        """
+        if self._is_java_jni_project:
+            return self.get_plugin('memory_soot')
+        else:
+            return self.get_plugin('memory')
 
     @property
     def javavm_registers(self):
-        return self._get_javavm_view_of_plugin('registers')
-
-    def _get_javavm_view_of_plugin(self, plugin_name):
         """
-        In case of the JavaVM with JNI support, a state can store the same plugin
-        twice; one for the native and one for the java view of the state.
+        In case of an JavaVM with JNI support, a state can store the registers
+        plugin twice; one for the native and one for the java view of the state.
 
-        :return: The JavaVM view of the requested plugin.
+        :return: The JavaVM view of the registers plugin.
         """
-        plugin_name = plugin_name+"_soot" if self.has_plugin(plugin_name+"_soot") else plugin_name
-        return self.get_plugin(plugin_name)
-
+        if self._is_java_jni_project:
+            return self.get_plugin('registers_soot')
+        else:
+            return self.get_plugin('registers')
 
     #
     # Constraint pass-throughs
@@ -963,4 +976,4 @@ from .state_plugins.inspect import BP_AFTER, BP_BEFORE
 from .state_plugins.sim_action import SimActionConstraint
 
 from . import sim_options as o
-from .errors import SimMergeError, SimValueError, SimStateError, SimSolverModeError, AngrNoPluginError
+from .errors import SimMergeError, SimValueError, SimStateError, SimSolverModeError

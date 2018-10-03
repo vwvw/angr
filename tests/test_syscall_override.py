@@ -1,4 +1,3 @@
-import nose
 import angr
 
 import logging
@@ -23,14 +22,6 @@ avoid_addrs = {
     'mips': [ 0x400A10,0x400774 ]
 }
 
-corrupt_addrs = {
-    'i386': [ 0x80486B6, b'bO\xcc', lambda s: s.memory.store(s.regs.esp, s.regs.eax) ],
-    'x86_64': [ 0x400742, b'\xd4&\xb0[\x41', lambda s: s.registers.store('rdx', 8) ],
-    'ppc': [ 0x100006B8, b'\x05\xad\xc2\xea', lambda s: s.registers.store('r5', 8) ],
-    'armel': [ 0x8678, b'\xbdM\xec3', lambda s: s.registers.store('r2', 8) ],
-    'mips': [ 0x400918, b'[\xf8\x96@'[::-1], lambda s: s.registers.store('a2', 8) ]
-}
-
 def run_fauxware_override(arch):
     p = angr.Project(os.path.join(test_location, arch, "fauxware"), use_sim_procedures=False)
     s = p.factory.full_init_state()
@@ -39,7 +30,7 @@ def run_fauxware_override(arch):
         state.posix.get_fd(1).write_data(b"HAHA\0")
 
     #s.posix.queued_syscall_returns = [ ]
-    s.posix.queued_syscall_returns.append(None) # let the mmap run
+    s.posix.queued_syscall_returns.append(None) # let the fstat run
     s.posix.queued_syscall_returns.append(overwrite_str) # prompt for username
     s.posix.queued_syscall_returns.append(0) # username read
     s.posix.queued_syscall_returns.append(0) # newline read
@@ -48,10 +39,42 @@ def run_fauxware_override(arch):
     s.posix.queued_syscall_returns.append(0) # password \n input
 
     results = p.factory.simulation_manager(thing=s).explore(find=target_addrs[arch], avoid=avoid_addrs[arch])
-    stdin = results.found[0].posix.dumps(0)
-    nose.tools.assert_equal(b'SOSNEAKY', stdin)
-    stdout = results.found[0].posix.dumps(1)
-    nose.tools.assert_equal(b'HAHA\0', stdout)
+    assert results.found[0].posix.dumps(0) == b'SOSNEAKY'
+    assert results.found[0].posix.dumps(1) == b"HAHA\0"
+
+def test_concrete_syscall_effects(arch="x86_64"):
+    p = angr.Project(os.path.join(test_location, arch, "fauxware"), use_sim_procedures=False)
+    s = p.factory.full_init_state()
+
+    concrete_effects = [
+        None, # fstat? why the fuck?
+        None, #mmap
+        angr.misc.ConcreteSyscallEffects(return_value=8, memory_effects={ 0x7fffffffffefeb0: b"asdfasdf" }, stub_only=False),
+        None,
+        angr.misc.ConcreteSyscallEffects(return_value=8, memory_effects={ 0x7fffffffffefea0: b"SOSNEAKY" }, stub_only=False),
+        #lambda *args, **kwargs: ipdb.set_trace(), #read
+        None,
+    ]
+    s.posix.queued_syscall_returns = concrete_effects
+
+    results = p.factory.simulation_manager(thing=s).explore(find=target_addrs[arch], avoid=avoid_addrs[arch])
+    assert len(results.found)
+    assert len(results.found[0].posix.dumps(0)) == 2
+
+    s = p.factory.full_init_state()
+    concrete_effects = [
+        None, # fstat? why the fuck?
+        None, #mmap
+        angr.misc.ConcreteSyscallEffects(return_value=8, memory_effects={ 0x7fffffffffefeb0: b"asdfasdf" }),
+        None,
+        angr.misc.ConcreteSyscallEffects(return_value=8, memory_effects={ 0x7fffffffffefea0: b"SOSNEAKY" }),
+        #lambda *args, **kwargs: ipdb.set_trace(), #read
+        None,
+    ]
+    s.posix.queued_syscall_returns = concrete_effects
+    results = p.factory.simulation_manager(thing=s).explore(find=target_addrs[arch], avoid=avoid_addrs[arch])
+    assert len(results.found)
+    assert results.found[0].posix.dumps(0) == b'\0\0\0\0\0\0\0\0\0SOSNEAKY\0'
 
 def test_fauxware_override():
     #for arch in target_addrs:
@@ -59,6 +82,7 @@ def test_fauxware_override():
     yield run_fauxware_override, 'x86_64'
 
 if __name__ == "__main__":
-    #run_fauxware_override('x86_64')
-    for r,a in test_fauxware_override():
-        r(a)
+    run_fauxware_override('x86_64')
+    #for r,a in test_fauxware_override():
+    #   r(a)
+    test_concrete_syscall_effects()

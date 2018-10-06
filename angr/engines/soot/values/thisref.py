@@ -8,8 +8,7 @@ from .instancefieldref import SimSootValue_InstanceFieldRef
 from .local import SimSootValue_Local
 from ..method_dispatcher import resolve_method
 
-l = logging.getLogger("angr.engines.soot.values.thisref")
-
+l = logging.getLogger(name=__name__)
 
 
 class SimSootValue_ThisRef(SimSootValue):

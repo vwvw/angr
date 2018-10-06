@@ -65,7 +65,7 @@ class SimJavaVM(SimOS):
             if len(native_libs_simos) > 1 or len(native_libs_arch) > 1:
                 l.warning("Native libraries appear to require different SimOS's (%s) or Arch's (%s).",
                           native_libs_simos, native_libs_arch)
-            # instantiate native SimOS
+            # instantiate the native SimOS
             if native_libs_simos:
                 self.native_simos = native_libs_simos.pop()(self.project)
                 self.native_simos.arch = native_libs_arch.pop()()

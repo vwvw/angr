@@ -204,45 +204,6 @@ class SimJavaVM(SimOS):
         str_sym = StringS("cmd_line_arg", max_length)
         state.solver.add(str_sym != StringV(""))
         state.memory.store(str_ref, str_sym)
-        # initialize class
-        state.javavm_classloader.get_class(state.addr.method.class_name, init_class=True)
-
-        # initialize the Java environment
-        # TODO move this to `state_full_init?
-        self.init_static_field(state, "java.lang.System", "in", "java.io.InputStream")
-        self.init_static_field(state, "java.lang.System", "out", "java.io.PrintStream")
-
-        return state
-
-    def state_entry(self, *args, **kwargs): # pylint: disable=arguments-differ
-        """
-        Create an entry state.
-
-        :param *args: List of SootArgument values (optional).
-        """
-        state = self.state_blank(**kwargs)
-        # for the Java main method `public static main(String[] args)`,
-        # we add symbolic cmdline arguments
-        if not args and state.addr.method.name == 'main' and \
-                        state.addr.method.params[0] == 'java.lang.String[]':
-            cmd_line_args = SimSootExpr_NewArray.new_array(state, "java.lang.String", BVS('argc', 32))
-            cmd_line_args.add_default_value_generator(self.generate_symbolic_cmd_line_arg)
-            args = [SootArgument(cmd_line_args, "java.lang.String[]")]
-            # for referencing the Java array, we need to know the array reference
-            # => saves it in the globals dict
-            state.globals['cmd_line_args'] = cmd_line_args
-        # setup arguments
-        state = self.state_call(state.addr, *args, base_state=state)
-        return state
-
-    @staticmethod
-    def generate_symbolic_cmd_line_arg(state, max_length=1000):
-        """
-        Generates a new symbolic cmd line argument string.
-        :return: The string reference.
-        """
-        str_ref = SimSootValue_StringRef(state.memory.get_new_uuid())
-        state.memory.store(str_ref, StringS("cmd_line_arg", max_length))
         return str_ref
 
     def state_call(self, addr, *args, **kwargs):

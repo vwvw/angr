@@ -207,6 +207,11 @@ class SimJavaVM(SimOS):
         # initialize class
         state.javavm_classloader.get_class(state.addr.method.class_name, init_class=True)
 
+        # initialize the Java environment
+        # TODO move this to `state_full_init?
+        self.init_static_field(state, "java.lang.System", "in", "java.io.InputStream")
+        self.init_static_field(state, "java.lang.System", "out", "java.io.PrintStream")
+
         return state
 
     def state_entry(self, *args, **kwargs): # pylint: disable=arguments-differ

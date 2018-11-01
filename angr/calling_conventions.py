@@ -1181,6 +1181,9 @@ CC = {
     'ARMHF': [
         SimCCARM,
     ],
+    'ARMCortexM': [
+        SimCCARM,
+    ],
     'MIPS32': [
         SimCCO32,
     ],
@@ -1207,6 +1210,7 @@ DEFAULT_CC = {
     'X86': SimCCCdecl,
     'ARMEL': SimCCARM,
     'ARMHF': SimCCARM,
+    'ARMCortexM': SimCCARM,
     'MIPS32': SimCCO32,
     'MIPS64': SimCCO64,
     'PPC32': SimCCPowerPC,
@@ -1236,6 +1240,10 @@ SYSCALL_CC = {
     'ARMEL': {
         'default': SimCCARMLinuxSyscall,
         'Linux': SimCCARMLinuxSyscall,
+    },
+    'ARMCortexM': {
+        # FIXME: TODO: This is wrong.  Fill in with a real CC when we support CM syscalls
+        'default': SimCCARMLinuxSyscall,
     },
     'ARMHF': {
         'default': SimCCARMLinuxSyscall,

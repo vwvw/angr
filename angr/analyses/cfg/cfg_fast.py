@@ -1418,7 +1418,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
     def _post_process_successors(self, addr, successors):
 
-        if self.project.arch.name in ('ARMEL', 'ARMHF') and addr % 2 == 1:
+        if self.project.arch.name in ('ARMEL', 'ARMHF', 'ARMCortexM') and addr % 2 == 1:
             # we are in thumb mode. filter successors
             successors = self._arm_thumb_filter_jump_successors(addr,
                                                                 successors,
@@ -3487,7 +3487,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
                 return addr, current_function_addr, cfg_node, irsb
 
-            is_arm_arch = True if self.project.arch.name in ('ARMHF', 'ARMEL') else False
+            is_arm_arch = True if self.project.arch.name in ('ARMHF', 'ARMEL', 'ARMCortexM') else False
 
             if is_arm_arch:
                 real_addr = addr & (~1)
@@ -3629,7 +3629,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         :param func_addr: function address
         :return: None
         """
-        if self.project.arch.name in ('ARMEL', 'ARMHF'):
+        if self.project.arch.name in ('ARMEL', 'ARMHF', 'ARMCortexM'):
             if self._arch_options.ret_jumpkind_heuristics:
                 if addr == func_addr:
                     self._arm_track_lr_on_stack(addr, irsb, self.functions[func_addr])
@@ -3651,6 +3651,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
                 if not irsb.statements:
                     # Get an IRSB with statements
+
                     irsb = self.project.factory.block(irsb.addr, size=irsb.size).vex
 
                 for stmt in irsb.statements:

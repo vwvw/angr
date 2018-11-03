@@ -107,12 +107,46 @@ class JumpTableResolver(IndirectJumpResolver):
             # the load statement is not found
             return False, None
 
-        # TODO: FIXME: Removed by EDG because it breaks everything by removing the entire
-        # slice for short slices e.g., :
-        # ldr. r0, =xxx
-        # bx, r0
-        ## skip all statements before the load statement
-        #b.slice.remove_nodes_from(stmts_to_remove)
+        # If we're just reading a constant, don't bother with the rest of this mess!
+        if isinstance(load_stmt, pyvex.IRStmt.WrTmp):
+            if type(load_stmt.data.addr) is pyvex.IRExpr.Const:
+                # It's directly loading from a constant address
+                # e.g.,
+                #  ldr r0, =main+1
+                #  blx r0
+                # It's not a jump table, but we resolve it anyway
+                jump_target_addr = load_stmt.data.addr.con.value
+                jump_target = cfg._fast_memory_load_pointer(jump_target_addr)
+                l.info("Resolved constant indirect jump from %#08x to %#08x" % (addr, jump_target_addr))
+                ij = cfg.indirect_jumps[addr]
+                ij.jumptable = False
+                ij.resolved_targets = set([jump_target])
+                return True, [jump_target]
+        elif isinstance(load_stmt, pyvex.IRStmt.LoadG):
+            if type(load_stmt.addr) is pyvex.IRExpr.Const:
+                # It's directly loading from a constant address
+                # e.g.,
+                #  4352c     SUB     R1, R11, #0x1000
+                #  43530     LDRHI   R3, =loc_45450
+                #  ...
+                #  43540     MOV     PC, R3
+                #
+                # It's not a jump table, but we resolve it anyway
+                # Note that this block has two branches: One goes to 45450, the other one goes to whatever the original
+                # value of R3 is. Some intensive data-flow analysis is required in this case.
+                jump_target_addr = load_stmt.addr.con.value
+                jump_target = cfg._fast_memory_load_pointer(jump_target_addr)
+                l.info("Resolved constant indirect jump from %#08x to %#08x" % (addr, jump_target_addr))
+                ij = cfg.indirect_jumps[addr]
+                ij.jumptable = False
+                ij.resolved_targets = set([jump_target])
+                return True, [jump_target]
+        # Well, we have a real jumptable to resolve!
+
+        # skip all statements before the load statement
+        # We want to leave the final loaded value as symbolic, so we can
+        # get the full range of possibilities
+        b.slice.remove_nodes_from(stmts_to_remove)
 
         # Debugging output
         if l.level == logging.DEBUG:

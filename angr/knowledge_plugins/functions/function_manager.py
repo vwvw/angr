@@ -12,37 +12,40 @@ l = logging.getLogger(name=__name__)
 
 
 class FunctionDict(SortedDict):
-		"""
-		FunctionDict is a dict where the keys are function starting addresses and
-		map to the associated :class:`Function`.
-		"""
-		def __init__(self, backref, *args, **kwargs):
-				self._backref = backref
-				self._key_types = kwargs.pop('key_types', (int, long))
-				super(FunctionDict, self).__init__(*args, **kwargs)
+    """
+    FunctionDict is a dict where the keys are function starting addresses and
+    map to the associated :class:`Function`.
+    """
+    def __init__(self, backref, *args, **kwargs):
+        self._backref = backref
+        super(FunctionDict, self).__init__(*args, **kwargs)
 
-		def __getitem__(self, addr):
-				try:
-						return super(FunctionDict, self).__getitem__(addr)
-				except KeyError:
-						if not isinstance(addr, (int, long)):
-								raise TypeError("FunctionDict only supports int as key type")
-						t = Function(self._backref, addr)
-						self[addr] = t
-						self._backref._function_added(t)
-						return t
+    def __getitem__(self, addr):
+        try:
+            return super(FunctionDict, self).__getitem__(addr)
+        except KeyError:
+            if not isinstance(addr, int):
+                raise TypeError("FunctionDict only supports int as key type")
 
-		def floor_addr(self, addr):
-				try:
-						return next(self.irange(maximum=addr, reverse=True))
-				except StopIteration:
-						raise KeyError(addr)
+            t = Function(self._backref, addr)
+            self[addr] = t
+            self._backref._function_added(t)
+            return t
 
-		def ceiling_addr(self, addr):
-				try:
-						return next(self.irange(minimum=addr, reverse=False))
-				except StopIteration:
-						raise KeyError(addr)
+    def get(self, addr):
+        return super(FunctionDict, self).__getitem__(addr)
+
+    def floor_addr(self, addr):
+        try:
+            return next(self.irange(maximum=addr, reverse=True))
+        except StopIteration:
+            raise KeyError(addr)
+
+    def ceiling_addr(self, addr):
+        try:
+            return next(self.irange(minimum=addr, reverse=False))
+        except StopIteration:
+            raise KeyError(addr)
 
 
 class FunctionManager(KnowledgeBasePlugin, collections.Mapping):

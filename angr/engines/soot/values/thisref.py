@@ -13,8 +13,6 @@ l = logging.getLogger(name=__name__)
 
 class SimSootValue_ThisRef(SimSootValue):
 
-    __slots__ = [ 'id', 'type' ]
-
     def __init__(self, heap_alloc_id, type_):
         self.heap_alloc_id = heap_alloc_id
         self.type = type_

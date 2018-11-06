@@ -10,7 +10,6 @@ from itanium_demangler import parse
 import claripy
 from ...errors import SimEngineError, SimMemoryError
 from ...procedures import SIM_LIBRARIES
-from ...misc import repr_addr
 
 l = logging.getLogger(name=__name__)
 
@@ -97,10 +96,7 @@ class Function(object):
 
         # generate an IDA-style sub_X name
         if name is None:
-            if isinstance(addr, (int, long)):
-                name = 'sub_%x' % addr
-            else:
-                name = str(addr)
+            name = 'sub_%x' % addr
 
         binary_name = None
         if self.is_simprocedure:
@@ -432,7 +428,7 @@ class Function(object):
             return False
 
     def __str__(self):
-        s = 'Function %s [%s]\n' % (self.name, repr_addr(self.addr))
+        s = 'Function %s [%s]\n' % (self.name, self.addr)
         s += '  Syscall: %s\n' % self.is_syscall
         s += '  SP difference: %d\n' % self.sp_delta
         s += '  Has return: %s\n' % self.has_return
@@ -440,14 +436,14 @@ class Function(object):
         s += '  Arguments: reg: %s, stack: %s\n' % \
             (self._argument_registers,
              self._argument_stack_variables)
-        s += '  Blocks: [%s]\n' % ", ".join([ repr_addr(block_addr) for block_addr in self.block_addrs])
+        s += '  Blocks: [%s]\n' % ", ".join(['%#x' % i for i in self.block_addrs])
         s += "  Calling convention: %s" % self.calling_convention
         return s
 
     def __repr__(self):
         if self.is_syscall:
-            return '<Syscall function %s (%s)>' % (self.name, repr_addr(self.addr))
-        return '<Function %s (%s)>' % (self.name, repr_addr(self.addr))
+            return '<Syscall function %s (%s)>' % (self.name, self.addr)
+        return '<Function %s (%s)>' % (self.name, self.addr)
 
     @property
     def endpoints(self):
@@ -642,7 +638,7 @@ class Function(object):
             node._graph = self.transition_graph
             if node.addr not in self or self._block_sizes[node.addr] == 0:
                 self._block_sizes[node.addr] = node.size
-            if self._addr_to_funcloc(node.addr) == self.addr:
+            if node.addr == self.addr:
                 if self.startpoint is None or not self.startpoint.is_hook:
                     self.startpoint = node
             if is_local:
@@ -1086,14 +1082,6 @@ class Function(object):
         if self.calling_convention is not None:
             self.calling_convention.args = None
             self.calling_convention.func_ty = proto
-
-    def _addr_to_funcloc(self, addr):
-
-        # FIXME
-        if isinstance(addr, tuple):
-            return addr[0]
-        else:  # int, long
-            return addr
 
 
     @property

@@ -11,6 +11,10 @@ from ...engines.soot.values import SimSootValue_Local, SimSootValue_ParamRef
 class JavaSimProcedure(SimProcedure):
 
     @property
+    def is_java(self):
+        return True
+
+    @property
     def _engine(self):
         return self.project.factory.default_engine  # FIXME: Currently we assume that it must be a SimEngineSoot
 

@@ -35,8 +35,7 @@ class SimEngineVEX(SimEngine):
             default_opt_level=1,
             support_selfmodifying_code=None,
             single_step=False,
-            default_strict_block_end=False,
-            **kwargs):
+            default_strict_block_end=False):
 
         super(SimEngineVEX, self).__init__(project)
 
@@ -116,7 +115,7 @@ class SimEngineVEX(SimEngine):
 
             insn_bytes = \
                 self.project.arch.asm(kwargs['insn_text'], addr=kwargs.get('addr', 0),
-                                      thumb=thumb, as_bytes=True)
+                                      thumb=kwargs.get('thumb', False), as_bytes=True)
 
             if insn_bytes is None:
                 raise AngrAssemblyError("Assembling failed. Please make sure keystone is installed, and the assembly"

@@ -18,7 +18,6 @@ from .cfg_arch_options import CFGArchOptions
 from .cfg_base import CFGBase
 from .cfg_node import CFGNode
 from ..forward_analysis import ForwardAnalysis
-from .cfg_utils import CFGUtils
 from ... import sim_options as o
 from ...errors import (AngrCFGError, SimEngineError, SimMemoryError, SimTranslationError, SimValueError,
                        AngrUnsupportedSyscallError
@@ -1554,9 +1553,6 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         # Finally, mark endpoints of every single function
         for function in self.kb.functions.values():
             function.mark_nonreturning_calls_endpoints()
-
-        if self.project.arch.name != 'Soot':
-            self.make_functions()
 
         # optional: remove functions that must be alignments
         self.remove_function_alignments()

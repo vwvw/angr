@@ -294,7 +294,7 @@ class AngrObjectFactory(object):
                 size = max_size
             return Block(addr, project=self.project, size=size, byte_string=byte_string, vex=vex, thumb=thumb,
                         backup_state=backup_state, opt_level=opt_level, num_inst=num_inst, traceflags=traceflags,
-                        strict_block_end=strict_block_end
+                        strict_block_end=strict_block_end, collect_data_refs=collect_data_refs,
                         )
 
     def fresh_block(self, addr, size, backup_state=None):

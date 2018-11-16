@@ -10,9 +10,8 @@ import claripy
 import ana
 import archinfo
 
-from archinfo import arch_from_id, Arch
+from archinfo import arch_from_id
 from archinfo.arch_soot import ArchSoot, SootAddressDescriptor
-from .misc.ux import deprecated
 from .misc.plugins import PluginHub, PluginPreset
 from .sim_state_options import SimStateOptions
 
@@ -224,12 +223,8 @@ class SimState(PluginHub, ana.Storable):
 
     def __repr__(self):
         try:
-            addr = self.addr
-            if type(addr) in (int, long):
-                ip_str = "%#x" % addr
-            else:
-                ip_str = repr(addr)
-        except (SimValueError, SimSolverModeError):
+            ip_str = "%#x" % self.addr
+        except (SimValueError, SimSolverModeError, TypeError):
             ip_str = repr(self.regs.ip)
 
         return "<SimState @ %s>" % ip_str

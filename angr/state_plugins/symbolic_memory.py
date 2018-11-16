@@ -3,7 +3,7 @@ from collections import defaultdict
 import logging
 import itertools
 
-l = logging.getLogger("angr.state_plugins.symbolic_memory")
+l = logging.getLogger(name=__name__)
 
 import claripy
 
@@ -570,7 +570,7 @@ class SimSymbolicMemory(SimMemory): #pylint:disable=abstract-method
         return addrs, read_value, load_constraint
 
     def _find(self, start, what, max_search=None, max_symbolic_bytes=None, default=None, step=1,
-              disable_actions=False, inspect=True):
+              disable_actions=False, inspect=True, chunk_size=None):
         if max_search is None:
             max_search = DEFAULT_MAX_SEARCH
 
@@ -581,10 +581,13 @@ class SimSymbolicMemory(SimMemory): #pylint:disable=abstract-method
         remaining_symbolic = max_symbolic_bytes
         seek_size = len(what)//self.state.arch.byte_width
         symbolic_what = self.state.solver.symbolic(what)
+
         l.debug("Search for %d bytes in a max of %d...", seek_size, max_search)
 
         chunk_start = 0
-        chunk_size = max(0x100, seek_size + 0x80)
+        if chunk_size is None:
+            chunk_size = max(0x100, seek_size + 0x80)
+
         chunk = self.load(start, chunk_size, endness="Iend_BE",
                           disable_actions=disable_actions, inspect=inspect)
 
@@ -846,6 +849,9 @@ class SimSymbolicMemory(SimMemory): #pylint:disable=abstract-method
             stored_values.append(dict(value=conditional_value, addr=segment['start'], size=segment['size']))
 
         return stored_values
+
+    def flush_pages(self,whitelist):
+        self.mem.flush_pages(whitelist)
 
     @staticmethod
     def _create_segment(addr, size, s_options, idx, segments):

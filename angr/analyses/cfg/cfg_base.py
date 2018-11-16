@@ -14,17 +14,17 @@ from cle import ELF, PE, Blob, TLSObject, MachO, ExternObject, KernelObject
 from ...misc.ux import deprecated
 from ... import SIM_PROCEDURES
 from ...errors import AngrCFGError, SimTranslationError, SimMemoryError, SimIRSBError, SimEngineError,\
-    AngrUnsupportedSyscallError, SimError
+    AngrUnsupportedSyscallError, SimError, SimConcreteMemoryError
 from ...codenode import HookNode, BlockNode
 from ...knowledge_plugins import FunctionManager, Function
 from .. import Analysis
-from .cfg_node import CFGNode, CFGNodeA
+from .cfg_node import CFGNode, CFGENode
 from .indirect_jump_resolvers.default_resolvers import default_indirect_jump_resolvers
 
-l = logging.getLogger("angr.analyses.cfg.cfg_base")
+l = logging.getLogger(name=__name__)
 
 
-class IndirectJump(object):
+class IndirectJump:
 
     __slots__ = [ "addr", "ins_addr", "func_addr", "jumpkind", "stmt_idx", "resolved_targets", "jumptable",
                   "jumptable_addr", "jumptable_entries",
@@ -1153,7 +1153,7 @@ class CFGBase(Analysis):
                                        thumb=n.thumb
                                        )
                 elif self.tag == "CFGEmulated":
-                    new_node = CFGNodeA(n.addr, new_size, self, callstack_key=callstack_key,
+                    new_node = CFGENode(n.addr, new_size, self, callstack_key=callstack_key,
                                         function_address=n.function_address, block_id=n.block_id,
                                         instruction_addrs=tuple([i for i in n.instruction_addrs
                                                            if n.addr <= i <= n.addr + new_size
@@ -1553,7 +1553,7 @@ class CFGBase(Analysis):
                     b = self.project.factory.successors(tmp_state, jumpkind='Ijk_Boring')
                     if len(b.successors) != 1:
                         break
-                    if b.successors[0].history.jumpkind != 'Ijk_Boring':
+                    if b.successors[0].history.jumpkind not in ('Ijk_Boring', 'Ijk_InvalICache'):
                         break
                     if b.successors[0].ip.symbolic:
                         break
@@ -1644,7 +1644,7 @@ class CFGBase(Analysis):
 
             if len(func_0.block_addrs) == 1:
                 block = next(func_0.blocks)
-                if block.vex.jumpkind != 'Ijk_Boring':
+                if block.vex.jumpkind not in ('Ijk_Boring', 'Ijk_InvalICache'):
                     continue
                 # Skip alignment blocks
                 if self._is_noop_block(self.project.arch, block):
@@ -1858,7 +1858,7 @@ class CFGBase(Analysis):
                                                   to_outside=to_outside
                                                   )
 
-        elif jumpkind == 'Ijk_Boring':
+        elif jumpkind in ('Ijk_Boring', 'Ijk_InvalICache'):
 
             # convert src_addr and dst_addr to CodeNodes
             n = self.get_any_node(src_addr)

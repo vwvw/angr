@@ -6,7 +6,7 @@ from .filesystem import SimMount
 from ..storage.file import SimFile, SimPacketsStream, Flags, SimFileDescriptor, SimFileDescriptorDuplex
 from .. import sim_options as options
 
-l = logging.getLogger("angr.state_plugins.posix")
+l = logging.getLogger(name=__name__)
 
 max_fds = 8192
 
@@ -208,6 +208,14 @@ class SimSystemPosix(SimStatePlugin):
         self.stdout.set_state(state)
         self.stderr.set_state(state)
 
+        if self.socket_queue:
+            for sock_pair in self.socket_queue:
+                if not sock_pair:
+                    continue
+                sock_pair[0].set_state(state)
+                sock_pair[1].set_state(state)
+
+
     def _pick_fd(self):
         for fd in range(0, 8192):
             if fd not in self.fd:
@@ -226,6 +234,10 @@ class SimSystemPosix(SimStatePlugin):
 
         ``mode`` from open(2) is unsupported at present.
         """
+
+        # FIXME: HACK
+        if self.uid != 0 and name.startswith(b'/var/run'):
+            return None
 
         if len(name) == 0:
             return None
@@ -307,7 +319,7 @@ class SimSystemPosix(SimStatePlugin):
             if not self.state.solver.satisfiable():
                 raise SimPosixError("Tried to do operation on symbolic but partially constrained file descriptor")
             fd = ideal
-            new_filename = '/tmp/angr_implicit_%d' % self.autotmp_counter
+            new_filename = b'/tmp/angr_implicit_%d' % self.autotmp_counter
             l.warning("Tried to look up a symbolic fd - constrained to %d and opened %s", ideal, new_filename)
             self.autotmp_counter += 1
             if self.open(new_filename, Flags.O_RDWR, preferred_fd=fd) != fd:

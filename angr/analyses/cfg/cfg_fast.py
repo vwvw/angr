@@ -1847,7 +1847,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         for suc in successors:
             stmt_idx, ins_addr, target, jumpkind = suc
 
-            entries += self._create_jobs(target, jumpkind, function_addr, block, addr, cfg_node, ins_addr,
+            entries += self._create_jobs(target, jumpkind, function_addr, irsb, addr, cfg_node, ins_addr,
                                          stmt_idx
                                          )
 
@@ -2150,31 +2150,6 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
 
         return jobs
-
-    def _pop_pending_job(self):
-        """
-        Scan through the pending job list and pop the first pending job which must return from the source function
-        (callee function).
-
-        :return:  The popped pending job, or None if we are not sure which job to take.
-        """
-
-        job_index = None
-        for i, job in enumerate(self._pending_jobs):
-            src_func_addr = job.returning_source
-            if src_func_addr is None or src_func_addr not in self.kb.functions:
-                continue
-            function = self.kb.functions[src_func_addr]
-            if function.returning is True:
-                job_index = i
-                break
-
-        if job_index is not None:
-            the_job = self._pending_jobs[job_index]
-            del self._pending_jobs[job_index]
-            return the_job
-
-        return None
 
     # Data reference processing
 
@@ -3170,13 +3145,13 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
             # get the node on CFG
             if func.startpoint is None:
-                l.warning('Function %s does not have a startpoint (yet).', CFGUtils.loc_to_str(func_addr))
+                l.warning('Function %s does not have a startpoint (yet).', func_addr)
                 continue
 
             startpoint = self.get_any_node(func.startpoint.addr)
             if startpoint is None:
                 # weird...
-                l.warning('No CFGNode is found for function %s in _make_return_edges().', CFGUtils.loc_to_str(func_addr))
+                l.warning('No CFGNode is found for function %s in _make_return_edges().', func_addr)
                 continue
 
             endpoints = self._get_return_sources(func)

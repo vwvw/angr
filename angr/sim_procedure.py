@@ -8,6 +8,8 @@ l = logging.getLogger(name=__name__)
 
 from archinfo.arch_soot import SootAddressDescriptor
 
+from archinfo.arch_soot import SootAddressDescriptor
+
 symbolic_count = itertools.count()
 
 
@@ -337,9 +339,7 @@ class SimProcedure:
             l.debug("Returning without setting exits due to 'internal' call.")
             return
 
-        if self.ret_to is not None:
-            ret_addr = self.ret_to
-
+        ret_addr = self._compute_ret_addr(expr)
         if ret_addr is None:
             raise SimProcedureError("No source for return address in ret() call!")
 
@@ -437,7 +437,7 @@ class SimProcedure:
 
 
 from . import sim_options as o
-from angr.errors import SimProcedureError, SimProcedureArgumentError
-from angr.sim_type import SimTypePointer
-from angr.state_plugins.sim_action import SimActionExit
-from angr.calling_conventions import DEFAULT_CC
+from .errors import SimProcedureError, SimProcedureArgumentError
+from .sim_type import SimTypePointer
+from .state_plugins.sim_action import SimActionExit
+from .calling_conventions import DEFAULT_CC

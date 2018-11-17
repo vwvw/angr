@@ -8,6 +8,7 @@ import logging
 l = logging.getLogger(name=__name__)
 
 
+
 class SimRegNameView(SimStatePlugin):
     def __getattr__(self, k):
         """

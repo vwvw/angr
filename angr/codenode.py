@@ -66,7 +66,7 @@ class BlockNode(CodeNode):
         self.bytestr = bytestr
 
     def __repr__(self):
-        return '<BlockNode at %s (size %d)>' % (repr_addr(self.addr), self.size)
+        return '<BlockNode at %s (size %d)>' % (self.addr, self.size)
 
     def __getstate__(self):
         return (self.addr, self.size, self.bytestr, self.thumb)
@@ -86,7 +86,7 @@ class SootBlockNode(BlockNode):
         assert (stmts is None and size == 0) or (size == len(stmts))
 
     def __repr__(self):
-        return '<SootBlockNode at %s (%d statements)>' % (repr_addr(self.addr), self.size)
+        return '<SootBlockNode at %s (%d statements)>' % (self.addr, self.size)
 
     def __getstate__(self):
         return self.addr, self.size, self.stmts
@@ -105,7 +105,7 @@ class HookNode(CodeNode):
         self.sim_procedure = sim_procedure
 
     def __repr__(self):
-        return '<HookNode %r at %s (size %s)>' % (self.sim_procedure, repr_addr(self.addr), self.size)
+        return '<HookNode %r at %s (size %s)>' % (self.sim_procedure, self.addr, self.size)
 
     def __hash__(self):
         return hash((self.addr, self.size, self.sim_procedure))

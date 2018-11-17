@@ -1,7 +1,8 @@
 import logging
 
 import networkx
-from . import Analysis
+
+from . import Analysis, register_analysis
 
 l = logging.getLogger(name=__name__)
 
@@ -27,6 +28,7 @@ class Loop(object):
     def __repr__(self):
         s = "<Loop @ %s, %d blocks>" % (self.entry.addr, len(self.body_nodes))
         return s
+
 
 class LoopFinder(Analysis):
     """

@@ -7,6 +7,8 @@ import archinfo
 from ...codenode import BlockNode, HookNode
 from ...engines.successors import SimSuccessors
 
+from .cfg_utils import CFGUtils
+
 
 class CFGNodeCreationFailure(object):
     """
@@ -151,7 +153,7 @@ class CFGNode(object):
         s = "<CFGNode "
         if self.name is not None:
             s += self.name + " "
-        s += hex(self.addr)
+        s += CFGUtils.loc_to_str(self.addr)
         if self.size is not None:
             s += "[%d]" % self.size
         s += ">"

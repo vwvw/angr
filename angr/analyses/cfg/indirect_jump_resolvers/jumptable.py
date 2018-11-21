@@ -9,11 +9,12 @@ from ....blade import Blade
 from ....annocfg import AnnotatedCFG
 from .... import sim_options as o
 from .... import BP, BP_BEFORE
-from ....surveyors import Slicecutor
+from ....exploration_techniques.slicecutor import Slicecutor
+from ....exploration_techniques.explorer import Explorer
 from .resolver import IndirectJumpResolver
 
 
-l = logging.getLogger("angr.analyses.cfg.indirect_jump_resolvers.jumptable")
+l = logging.getLogger(name=__name__)
 
 
 class UninitReadMeta(object):
@@ -176,13 +177,13 @@ class JumpTableResolver(IndirectJumpResolver):
             start_state.inspect.add_breakpoint('mem_read', init_registers_on_demand_bp)
 
             # Create the slicecutor
-            slicecutor = Slicecutor(project, annotatedcfg, start=start_state, targets=(load_stmt_loc[0],),
-                                    force_taking_exit=True
-                                    )
+            simgr = self.project.factory.simulation_manager(start_state, resilience=True)
+            simgr.use_technique(Slicecutor(annotatedcfg, force_taking_exit=True))
+            simgr.use_technique(Explorer(find=load_stmt_loc[0]))
 
             # Run it!
             try:
-                slicecutor.run()
+                simgr.run()
             except KeyError as ex:
                 # This is because the program slice is incomplete.
                 # Blade will support more IRExprs and IRStmts
@@ -190,7 +191,7 @@ class JumpTableResolver(IndirectJumpResolver):
                 continue
 
             # Get the jumping targets
-            for r in slicecutor.reached_targets:
+            for r in simgr.found:
                 try:
                     succ = project.factory.successors(r)
                 except (AngrError, SimError):
@@ -384,8 +385,8 @@ class JumpTableResolver(IndirectJumpResolver):
 
         :param load_stmt:   The VEX statement for loading the jump target addresses.
         :param state:       The SimState instance (in static mode).
-        :return:            A tuple of an abstract value (or a concrete value) representing the jump target addresses,
-                            and a set of extra concrete targets. Return (None, None) if we fail to parse the statement.
+        :return:            An abstract value (or a concrete value) representing the jump target addresses. Return None
+                            if we fail to parse the statement.
         """
 
         # The jump table address is stored in a tmp. In this case, we find the jump-target loading tmp.

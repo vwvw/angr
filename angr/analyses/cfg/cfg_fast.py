@@ -24,7 +24,8 @@ from ...errors import (AngrCFGError, SimEngineError, SimMemoryError, SimTranslat
 
 VEX_IRSB_MAX_SIZE = 400
 
-l = logging.getLogger("angr.analyses.cfg.cfg_fast")
+
+l = logging.getLogger(name=__name__)
 
 
 class Segment:
@@ -816,6 +817,12 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
     # TODO: Identify tail call optimization, and correctly mark the target as a new function
 
     PRINTABLES = string.printable.replace("\x0b", "").replace("\x0c", "").encode()
+    SPECIAL_THUNKS = {
+        'AMD64': {
+            bytes.fromhex('E807000000F3900FAEE8EBF9488D642408C3'): ('ret',),
+            bytes.fromhex('E807000000F3900FAEE8EBF948890424C3'): ('jmp', 'rax'),
+        }
+    }
 
     tag = "CFGFast"
 
@@ -842,6 +849,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                  exclude_sparse_regions=True,
                  skip_specific_regions=True,
                  heuristic_plt_resolving=None,
+                 detect_tail_calls=False,
                  start=None,  # deprecated
                  end=None,  # deprecated
                  **extra_arch_options
@@ -877,6 +885,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                                              default indirect jump resolvers specific to this architecture and binary
                                              types will be loaded.
         :param base_state:              A state to use as a backer for all memory loads
+        :param bool detect_tail_calls:  Enable aggressive tail-call optimization detection.
         :param int start:               (Deprecated) The beginning address of CFG recovery.
         :param int end:                 (Deprecated) The end address of CFG recovery.
         :param CFGArchOptions arch_options: Architecture-specific options.
@@ -904,6 +913,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
             resolve_indirect_jumps=resolve_indirect_jumps,
             indirect_jump_resolvers=indirect_jump_resolvers,
             indirect_jump_target_limit=indirect_jump_target_limit,
+            detect_tail_calls=detect_tail_calls,
         )
 
         # necessary warnings
@@ -982,6 +992,9 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         self._memory_data = { }
         # A mapping between address of the instruction that's referencing the memory data and the memory data itself
         self.insn_addr_to_memory_data = { }
+
+        # mapping to all known thunks
+        self._known_thunks = {}
 
         self._initial_state = None
         self._next_addr = None
@@ -1116,7 +1129,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
             return address
 
         try:
-            return next(self._regions.irange(minimum=address, reverse=True))
+            return next(self._regions.irange(minimum=address, reverse=False))
         except StopIteration:
             return None
 
@@ -1306,6 +1319,9 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         # Call _initialize_cfg() before self.functions is used.
         self._initialize_cfg()
 
+        # Scan for __x86_return_thunk and friends
+        self._known_thunks = self._find_thunks()
+
         # Initialize variables used during analysis
         self._pending_jobs = PendingJobs(self.functions, self._deregister_analysis_job)
         self._traced_addresses = set()
@@ -1356,7 +1372,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         self._nodes = {}
         self._nodes_by_addr = defaultdict(list)
 
-        if self._use_function_prologues:
+        if self._use_function_prologues and self.project.concrete_target is None:
             self._function_prologue_addrs = sorted(self._func_addrs_from_prologues())
             # make a copy of those prologue addresses, so that we can pop from the list
             self._remaining_function_prologue_addrs = self._function_prologue_addrs[::]
@@ -1488,6 +1504,10 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
         if self._force_complete_scan:
             addr = self._next_code_addr()
+            if addr is None:
+                l.debug("Force-scan jumping failed")
+            else:
+                l.debug("Force-scanning to %#x", addr)
 
             if addr is not None:
                 job = CFGJob(addr, addr, "Ijk_Boring", last_addr=None, job_type=CFGJob.JOB_TYPE_COMPLETE_SCANNING)
@@ -1881,6 +1901,16 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         else:
             target_addr = None
 
+        if target_addr in self._known_thunks and jumpkind == 'Ijk_Boring':
+            thunk_kind = self._known_thunks[target_addr][0]
+            if thunk_kind == 'ret':
+                jumpkind = 'Ijk_Ret'
+                target_addr = None
+            elif thunk_kind == 'jmp':
+                pass # ummmmmm not sure about this one
+            else:
+                raise Exception("This shouldn't be possible")
+
         jobs = [ ]
         is_syscall = jumpkind.startswith("Ijk_Sys")
 
@@ -1907,7 +1937,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                 cfg_node.has_return = True
 
             elif self._resolve_indirect_jumps and \
-                    (jumpkind in ('Ijk_Boring', 'Ijk_Call') or jumpkind.startswith('Ijk_Sys')):
+                    (jumpkind in ('Ijk_Boring', 'Ijk_Call', 'Ijk_InvalICache') or jumpkind.startswith('Ijk_Sys')):
                 # This is an indirect jump. Try to resolve it.
                 # FIXME: in some cases, a statementless irsb will be missing its instr addresses
                 # and this next part will fail. Use the real IRSB instead
@@ -1931,7 +1961,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                             jobs.append(ce)
                     return jobs
 
-                if jumpkind == "Ijk_Boring":
+                if jumpkind in ("Ijk_Boring", 'Ijk_InvalICache'):
                     resolved_as_plt = False
 
                     if irsb and self._heuristic_plt_resolving:
@@ -1977,7 +2007,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
             # This is a direct jump with a concrete target.
 
             # pylint: disable=too-many-nested-blocks
-            if jumpkind == 'Ijk_Boring':
+            if jumpkind in ('Ijk_Boring', 'Ijk_InvalICache'):
                 # if the target address is at another section, it has to be jumping to a new function
                 if not self._addrs_belong_to_same_section(addr, target_addr):
                     target_func_addr = target_addr
@@ -2014,6 +2044,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
             else:
                 # TODO: Support more jumpkinds
                 l.debug("Unsupported jumpkind %s", jumpkind)
+                l.debug("Instruction address: %#x", ins_addr)
 
         return jobs
 
@@ -3680,6 +3711,21 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                 state = succ.flat_successors[0]
                 if not state.regs.gp.symbolic and state.solver.is_false(state.regs.gp == 0xffffffff):
                     function.info['gp'] = state.regs.gp._model_concrete.value
+
+    def _find_thunks(self):
+        if self.project.arch.name not in self.SPECIAL_THUNKS:
+            return {}
+        result = {}
+        for code, meaning in self.SPECIAL_THUNKS[self.project.arch.name].items():
+            for addr in self.project.loader.memory.find(code):
+                if self._addr_in_exec_memory_regions(addr):
+                    result[addr] = meaning
+
+        return result
+
+    def _lift(self, *args, **kwargs):
+        kwargs['extra_stop_points'] = self._known_thunks
+        return super(CFGFast, self)._lift(*args, **kwargs)
 
     #
     # Public methods

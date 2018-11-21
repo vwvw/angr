@@ -14,17 +14,17 @@ from cle import ELF, PE, Blob, TLSObject, MachO, ExternObject, KernelObject
 from ...misc.ux import deprecated
 from ... import SIM_PROCEDURES
 from ...errors import AngrCFGError, SimTranslationError, SimMemoryError, SimIRSBError, SimEngineError,\
-    AngrUnsupportedSyscallError, SimError
+    AngrUnsupportedSyscallError, SimError, SimConcreteMemoryError
 from ...codenode import HookNode, BlockNode
 from ...knowledge_plugins import FunctionManager, Function
 from .. import Analysis
-from .cfg_node import CFGNode, CFGNodeA
+from .cfg_node import CFGNode, CFGENode
 from .indirect_jump_resolvers.default_resolvers import default_indirect_jump_resolvers
 
-l = logging.getLogger("angr.analyses.cfg.cfg_base")
+l = logging.getLogger(name=__name__)
 
 
-class IndirectJump(object):
+class IndirectJump:
 
     __slots__ = [ "addr", "ins_addr", "func_addr", "jumpkind", "stmt_idx", "resolved_targets", "jumptable",
                   "jumptable_addr", "jumptable_entries",
@@ -62,8 +62,10 @@ class CFGBase(Analysis):
 
     tag = None
 
-    def __init__(self, sort, context_sensitivity_level, normalize=False, binary=None, force_segment=False, iropt_level=None, base_state=None,
-                 resolve_indirect_jumps=True, indirect_jump_resolvers=None, indirect_jump_target_limit=100000):
+    def __init__(self, sort, context_sensitivity_level, normalize=False, binary=None, force_segment=False,
+                 iropt_level=None, base_state=None, resolve_indirect_jumps=True, indirect_jump_resolvers=None,
+                 indirect_jump_target_limit=100000, detect_tail_calls=False,
+                 ):
         """
         :param str sort:                            'fast' or 'emulated'.
         :param int context_sensitivity_level:       The level of context-sensitivity of this CFG (see documentation for
@@ -80,6 +82,8 @@ class CFGBase(Analysis):
                                                     default indirect jump resolvers specific to this architecture and binary
                                                     types will be loaded.
         :param int indirect_jump_target_limit:      Maximum indirect jump targets to be recovered.
+        :param bool detect_tail_calls:              Aggressive tail-call optimization detection. This option is only
+                                                    respected in make_functions().
 
         :return: None
         """
@@ -95,6 +99,7 @@ class CFGBase(Analysis):
         self._force_segment = force_segment
         self._iropt_level = iropt_level
         self._base_state = base_state
+        self._detect_tail_calls = detect_tail_calls
 
         # Initialization
         self._graph = None
@@ -1153,7 +1158,7 @@ class CFGBase(Analysis):
                                        thumb=n.thumb
                                        )
                 elif self.tag == "CFGEmulated":
-                    new_node = CFGNodeA(n.addr, new_size, self, callstack_key=callstack_key,
+                    new_node = CFGENode(n.addr, new_size, self, callstack_key=callstack_key,
                                         function_address=n.function_address, block_id=n.block_id,
                                         instruction_addrs=tuple([i for i in n.instruction_addrs
                                                            if n.addr <= i <= n.addr + new_size
@@ -1180,7 +1185,16 @@ class CFGBase(Analysis):
             if smallest_node not in graph:
                 continue
 
-            for _, d, data in original_successors:
+            for _s, d, data in original_successors:
+                ins_addr = data.get('ins_addr', None)  # ins_addr might be None for FakeRet edges
+                if ins_addr is None and data.get('jumpkind', None) != "Ijk_FakeRet":
+                    l.warning("Unexpected edge with ins_addr being None: %s -> %s, data = %s.",
+                              _s,
+                              d,
+                              str(data),
+                              )
+                if ins_addr is not None and ins_addr < smallest_node.addr:
+                    continue
                 if d not in graph[smallest_node]:
                     if d is n:
                         graph.add_edge(smallest_node, new_node, **data)
@@ -1212,7 +1226,7 @@ class CFGBase(Analysis):
                               if i.addr == smallest_node.addr]
             if new_successors:
                 new_successor = new_successors[0]
-                graph.add_edge(new_node, new_successor, jumpkind='Ijk_Boring')
+                graph.add_edge(new_node, new_successor, jumpkind='Ijk_Boring', ins_addr=new_node.instruction_addrs[-1])
             else:
                 # We gotta create a new one
                 l.error('normalize(): Please report it to Fish.')
@@ -1443,9 +1457,9 @@ class CFGBase(Analysis):
                     to_remove.add(fn.addr)
 
         # remove empty functions
-        for function in self.kb.functions.values():
-            if function.startpoint is None:
-                to_remove.add(function.addr)
+        for func in self.kb.functions.values():
+            if func.startpoint is None:
+                to_remove.add(func.addr)
 
         for addr in to_remove:
             del self.kb.functions[addr]
@@ -1553,7 +1567,7 @@ class CFGBase(Analysis):
                     b = self.project.factory.successors(tmp_state, jumpkind='Ijk_Boring')
                     if len(b.successors) != 1:
                         break
-                    if b.successors[0].history.jumpkind != 'Ijk_Boring':
+                    if b.successors[0].history.jumpkind not in ('Ijk_Boring', 'Ijk_InvalICache'):
                         break
                     if b.successors[0].ip.symbolic:
                         break
@@ -1644,7 +1658,7 @@ class CFGBase(Analysis):
 
             if len(func_0.block_addrs) == 1:
                 block = next(func_0.blocks)
-                if block.vex.jumpkind != 'Ijk_Boring':
+                if block.vex.jumpkind not in ('Ijk_Boring', 'Ijk_InvalICache'):
                     continue
                 # Skip alignment blocks
                 if self._is_noop_block(self.project.arch, block):
@@ -1677,7 +1691,6 @@ class CFGBase(Analysis):
             del functions[to_remove]
 
         return functions_to_remove
-
 
     def _addr_to_function(self, addr, blockaddr_to_function, known_functions):
         """
@@ -1719,6 +1732,66 @@ class CFGBase(Analysis):
 
         return f
 
+    def _is_tail_call_optimization(self, g : networkx.DiGraph, src_addr, dst_addr, src_function, all_edges,
+                                   known_functions, blockaddr_to_function):
+        """
+        If source and destination belong to the same function, and the following criteria apply:
+        - source node has only one default exit
+        - destination is not one of the known functions
+        - destination does not belong to another function, or destination belongs to the same function that
+          source belongs to
+        - at the end of the block, the SP offset is 0
+        - for all other edges that are pointing to the destination node, their source nodes must only have one default
+          exit, too
+
+        :return:    True if it is a tail-call optimization. False otherwise.
+        :rtype:     bool
+        """
+
+        def _has_more_than_one_exit(node_):
+            return len(g.out_edges(node_)) > 1
+
+        if len(all_edges) == 1 and dst_addr != src_addr:
+            the_edge = next(iter(all_edges))
+            _, dst, data = the_edge
+            if data.get('stmt_idx', None) != 'default':
+                return False
+
+            dst_in_edges = g.in_edges(dst, data=True)
+            if len(dst_in_edges) > 1:
+                # there are other edges going to the destination node. check all edges to make sure all source nodes
+                # only have one default exit
+                if any(data.get('stmt_idx', None) != 'default' for _, _, data in dst_in_edges):
+                    # some nodes are jumping to the destination node via non-default edges. skip.
+                    return False
+                if any(_has_more_than_one_exit(src_) for src_, _, _ in dst_in_edges):
+                    # at least one source node has more than just the default exit. skip.
+                    return False
+
+            candidate = False
+            if dst_addr in known_functions:
+                # dst_addr cannot be the same as src_function.addr. Pass
+                pass
+            elif dst_addr in blockaddr_to_function:
+                # it seems that we already know where this function should belong to. Pass.
+                dst_func = blockaddr_to_function[dst_addr]
+                if dst_func is src_function:
+                    # they belong to the same function right now, but they'd better not
+                    candidate = True
+                    # treat it as a tail-call optimization
+            else:
+                # we don't know where it belongs to
+                # treat it as a tail-call optimization
+                candidate = True
+
+            if candidate:
+                sptracker = self.project.analyses.StackPointerTracker(src_function)
+                sp_delta = sptracker.sp_offset_out(src_addr)
+                if sp_delta == 0:
+                    return True
+
+        return False
+
     def _graph_bfs_custom(self, g, starts, callback, blockaddr_to_function, known_functions, traversed_cfg_nodes=None):
         """
         A customized control flow graph BFS implementation with the following rules:
@@ -1746,18 +1819,18 @@ class CFGBase(Analysis):
             traversed.add(n)
 
             if n.has_return:
-                callback(n, None, {'jumpkind': 'Ijk_Ret'}, blockaddr_to_function, known_functions, None)
+                callback(g, n, None, {'jumpkind': 'Ijk_Ret'}, blockaddr_to_function, known_functions, None)
             # NOTE: A block that has_return CAN have successors that aren't the return.
             # This is particularly the case for ARM conditional instructions.  Yes, conditional rets are a thing.
 
             if g.out_degree(n) == 0:
                 # it's a single node
-                callback(n, None, None, blockaddr_to_function, known_functions, None)
+                callback(g, n, None, None, blockaddr_to_function, known_functions, None)
 
             else:
                 all_out_edges = g.out_edges(n, data=True)
                 for src, dst, data in all_out_edges:
-                    callback(src, dst, data, blockaddr_to_function, known_functions, all_out_edges)
+                    callback(g, src, dst, data, blockaddr_to_function, known_functions, all_out_edges)
 
                     jumpkind = data.get('jumpkind', "")
                     if not (jumpkind == 'Ijk_Call' or jumpkind.startswith('Ijk_Sys')):
@@ -1765,11 +1838,12 @@ class CFGBase(Analysis):
                         if dst not in stack and dst not in traversed:
                             stack.add(dst)
 
-    def _graph_traversal_handler(self, src, dst, data, blockaddr_to_function, known_functions, all_edges):
+    def _graph_traversal_handler(self, g, src, dst, data, blockaddr_to_function, known_functions, all_edges):
         """
         Graph traversal handler. It takes in a node or an edge, and create new functions or add nodes to existing
         functions accordingly. Oh, it also create edges on the transition map of functions.
 
+        :param g:           The control flow graph that is currently being traversed.
         :param CFGNode src: Beginning of the edge, or a single node when dst is None.
         :param CFGNode dst: Destination of the edge. For processing a single node, `dst` is None.
         :param dict data: Edge data in the CFG. 'jumpkind' should be there if it's not None.
@@ -1858,7 +1932,7 @@ class CFGBase(Analysis):
                                                   to_outside=to_outside
                                                   )
 
-        elif jumpkind == 'Ijk_Boring':
+        elif jumpkind in ('Ijk_Boring', 'Ijk_InvalICache'):
 
             # convert src_addr and dst_addr to CodeNodes
             n = self.get_any_node(src_addr)
@@ -1871,8 +1945,21 @@ class CFGBase(Analysis):
 
             # pre-check: if source and destination do not belong to the same section, it must be jumping to another
             # function
-            if not self._addrs_belong_to_same_section(src_addr, dst_addr):
+            belong_to_same_section = self._addrs_belong_to_same_section(src_addr, dst_addr)
+            if not belong_to_same_section:
                 _ = self._addr_to_function(dst_addr, blockaddr_to_function, known_functions)
+
+            if self._detect_tail_calls:
+                if self._is_tail_call_optimization(g, src_addr, dst_addr, src_function, all_edges, known_functions,
+                                                   blockaddr_to_function):
+                    l.debug("Possible tail-call optimization detected at function %#x.", dst_addr)
+                    # it's (probably) a tail-call optimization. we should make the destination node a new function
+                    # instead.
+                    blockaddr_to_function.pop(dst_addr, None)
+                    _ = self._addr_to_function(dst_addr, blockaddr_to_function, known_functions)
+                    self.kb.functions._add_outside_transition_to(src_function.addr, src_node, dst_node,
+                                                                 to_function_addr=dst_addr
+                                                                 )
 
             # is it a jump to another function?
             if dst_addr in known_functions or (
@@ -2054,6 +2141,7 @@ class CFGBase(Analysis):
     #
     # Indirect jumps processing
     #
+
     def _resolve_indirect_jump_timelessly(self, addr, block, func_addr, jumpkind):
         """
         Checks if MIPS32 and calls MIPS32 check, otherwise false

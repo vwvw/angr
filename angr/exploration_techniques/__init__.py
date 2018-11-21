@@ -167,6 +167,7 @@ class ExplorationTechnique:
         return False
 
 
+from .slicecutor import Slicecutor
 from .cacher import Cacher
 from .driller_core import DrillerCore
 from .loop_seer import LoopSeer
@@ -183,3 +184,5 @@ from .manual_mergepoint import ManualMergepoint
 from .tech_builder import TechniqueBuilder
 from .stochastic import StochasticSearch
 from .unique import UniqueSearch
+from .symbion import Symbion
+from ..errors import AngrError, AngrExplorationTechniqueError

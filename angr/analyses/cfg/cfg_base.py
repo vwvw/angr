@@ -1380,6 +1380,7 @@ class CFGBase(Analysis):
         entry_node = self.get_any_node(self._binary.entry)
         if entry_node is not None:
             function_nodes.add(entry_node)
+
         # aggressively remove and merge functions
         # For any function, if there is a call to it, it won't be removed
         called_function_addrs = set([n.addr for n in function_nodes])
@@ -1648,6 +1649,7 @@ class CFGBase(Analysis):
         functions_to_remove = set()
 
         for addr_0, addr_1 in zip(addrs[:-1], addrs[1:]):
+
             if addr_1 in predetermined_function_addrs:
                 continue
             if self.project.is_hooked(addr_0) or self.project.is_hooked(addr_1):
@@ -1673,26 +1675,13 @@ class CFGBase(Analysis):
                 else:
                     continue
 
-                # EDG says: Functions are not normalized yet, so you may run into this case:
-                # 0x800083d:	cmp	r0, #2
-                # 0x800083f:	push	{r4, lr}
-                # 0x8000841:	mov	r4, r1
-                # 0x8000843:	bgt	#0x800085d
-                # 83f is in both functions (and would be addr_1 here)
-                # We'd like to remove addr_1's function, and donate all its blocks to func_0
-                if not addr_1 in block.instruction_addrs and target_addr != addr_1:
+                if target_addr != addr_1:
                     continue
 
                 l.debug("Merging function %#x into %#x.", addr_1, addr_0)
 
                 # Merge it
                 func_1 = functions[addr_1]
-                # If the last instruction in func_1's first block is also in func_0, delete func_1's first block and just use func_9
-                # Saves normalization some work and keeps block fragmentation down
-                block_1 = next(func_1.blocks)
-                bad_addr = block_1.instruction_addrs[-1]
-                if bad_addr in block.instruction_addrs:
-                    del func_1._local_blocks[block_1.addr]
                 for block_addr in func_1.block_addrs:
                     merge_with = self._addr_to_function(addr_0, blockaddr_to_function, functions)
                     blockaddr_to_function[block_addr] = merge_with

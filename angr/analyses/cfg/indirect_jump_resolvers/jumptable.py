@@ -58,7 +58,8 @@ class JumpTableResolver(IndirectJumpResolver):
         :return: A bool indicating whether the indirect jump is resolved successfully, and a list of resolved targets
         :rtype: tuple
         """
-
+        if addr == 0x4002e7:
+            import ipdb; ipdb.set_trace()
         project = self.project  # short-hand
         self._max_targets = cfg._indirect_jump_target_limit
         # Perform a backward slicing from the jump target
@@ -232,11 +233,14 @@ class JumpTableResolver(IndirectJumpResolver):
 
                 # Both the min jump target and the max jump target should be within a mapped memory region
                 # i.e., we shouldn't be jumping to the stack or somewhere unmapped
-                if not project.loader.find_segment_containing(min_jump_target) or \
-                        not project.loader.find_segment_containing(max_jump_target):
-                    l.debug("Jump table %#x might have jump targets outside mapped memory regions. "
-                            "Continue to resolve it from the next data source.", addr)
-                    continue
+                if (not project.loader.find_segment_containing(min_jump_target) or \
+                        not project.loader.find_segment_containing(max_jump_target)):
+                    if (not project.loader.find_section_containing(min_jump_target) or \
+                            not project.loader.find_section_containing(max_jump_target)):
+
+                        l.debug("Jump table %#x might have jump targets outside mapped memory regions. "
+                                "Continue to resolve it from the next data source.", addr)
+                        continue
 
                 for idx, a in enumerate(state.solver.eval_upto(jump_addr, total_cases)):
                     if idx % 100 == 0 and idx != 0:

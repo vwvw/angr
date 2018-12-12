@@ -163,7 +163,6 @@ class JumpTableResolver(IndirectJumpResolver):
             # the load statement is not found
             return False, None
 
-<<<<<<< HEAD
         # If we're just reading a constant, don't bother with the rest of this mess!
         if isinstance(load_stmt, pyvex.IRStmt.WrTmp):
             if type(load_stmt.data.addr) is pyvex.IRExpr.Const:

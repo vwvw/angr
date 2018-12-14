@@ -298,7 +298,7 @@ class SimState(PluginHub, ana.Storable):
         ip = self.regs._ip
         if isinstance(ip, SootAddressDescriptor):
             return ip
-        return self.se.eval_one(self.regs._ip)
+        return self.solver.eval_one(self.regs._ip)
 
     @property
     def options(self):

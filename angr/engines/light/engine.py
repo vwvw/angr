@@ -76,7 +76,7 @@ class SimEngineLightVEX(SimEngineLight):
         if self.block.vex.jumpkind == 'Ijk_Call':
             handler = '_handle_function'
             if hasattr(self, handler):
-                getattr(self, handler)()
+                getattr(self, handler)(self._expr(self.block.vex.next))
             else:
                 self.l.warning('Function handler not implemented.')
 

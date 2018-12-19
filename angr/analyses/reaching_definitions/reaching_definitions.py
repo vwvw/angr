@@ -22,7 +22,7 @@ from ...keyed_region import KeyedRegion
 l = logging.getLogger(name=__name__)
 
 
-class LiveDefinitions(object):
+class LiveDefinitions:
     def __init__(self, arch, loader, track_tmps=False, analysis=None, init_func=False, cc=None, func_addr=None):
 
         # handy short-hands

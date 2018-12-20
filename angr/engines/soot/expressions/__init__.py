@@ -39,6 +39,7 @@ from .length import SimSootExpr_Length
 from .local import SimSootExpr_Local
 from .new import SimSootExpr_New
 from .newArray import SimSootExpr_NewArray
+from .newMultiArray import SimSootExpr_NewMultiArray
 from .paramref import SimSootExpr_ParamRef
 from .phi import SimSootExpr_Phi
 from .staticfieldref import SimSootExpr_StaticFieldRef

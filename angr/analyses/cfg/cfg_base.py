@@ -1,7 +1,5 @@
 
-import itertools
 import logging
-import struct
 from collections import defaultdict
 
 import cffi
@@ -14,7 +12,7 @@ from cle import ELF, PE, Blob, TLSObject, MachO, ExternObject, KernelObject
 from ...misc.ux import deprecated
 from ... import SIM_PROCEDURES
 from ...errors import AngrCFGError, SimTranslationError, SimMemoryError, SimIRSBError, SimEngineError,\
-    AngrUnsupportedSyscallError, SimError, SimConcreteMemoryError
+    AngrUnsupportedSyscallError, SimError
 from ...codenode import HookNode, BlockNode
 from ...knowledge_plugins import FunctionManager, Function
 from .. import Analysis
@@ -61,6 +59,7 @@ class CFGBase(Analysis):
     """
 
     tag = None
+    _cle_pseudo_objects = (ExternObject, KernelObject, TLSObject)
 
     def __init__(self, sort, context_sensitivity_level, normalize=False, binary=None, force_segment=False,
                  iropt_level=None, base_state=None, resolve_indirect_jumps=True, indirect_jump_resolvers=None,
@@ -152,12 +151,16 @@ class CFGBase(Analysis):
         self._exec_mem_regions = self._executable_memory_regions(None, self._force_segment)
         self._exec_mem_region_size = sum([(end - start) for start, end in self._exec_mem_regions])
 
-        # initialize an UnresolvableTarget SimProcedure
+        # initialize UnresolvableJumpTarget and UnresolvableCallTarget SimProcedure
         # but we do not want to hook the same symbol multiple times
-        ut_addr = self.project.loader.extern_object.get_pseudo_addr('UnresolvableTarget')
-        if not self.project.is_hooked(ut_addr):
-            self.project.hook(ut_addr, SIM_PROCEDURES['stubs']['UnresolvableTarget']())
-        self._unresolvable_target_addr = ut_addr
+        ut_jump_addr = self.project.loader.extern_object.get_pseudo_addr('UnresolvableJumpTarget')
+        if not self.project.is_hooked(ut_jump_addr):
+            self.project.hook(ut_jump_addr, SIM_PROCEDURES['stubs']['UnresolvableJumpTarget']())
+        self._unresolvable_jump_target_addr = ut_jump_addr
+        ut_call_addr = self.project.loader.extern_object.get_pseudo_addr('UnresolvableCallTarget')
+        if not self.project.is_hooked(ut_call_addr):
+            self.project.hook(ut_call_addr, SIM_PROCEDURES['stubs']['UnresolvableCallTarget']())
+        self._unresolvable_call_target_addr = ut_call_addr
 
         # partially and fully analyzed functions
         # this is implemented as a state machine: jobs (CFGJob instances) of each function are put into
@@ -355,7 +358,7 @@ class CFGBase(Analysis):
             return self._nodes[block_id]
         return None
 
-    def get_any_node(self, addr, is_syscall=None, anyaddr=False):
+    def get_any_node(self, addr, is_syscall=None, anyaddr=False, force_fastpath=False):
         """
         Get an arbitrary CFGNode (without considering their contexts) from our graph.
 
@@ -370,13 +373,20 @@ class CFGBase(Analysis):
                                 containing the specific address is returned, which is slow. If you need to do many such
                                 queries, you may first call `generate_index()` to create some indices that may speed up the
                                 query.
+        :param bool force_fastpath: If force_fastpath is True, it will only perform a dict lookup in the _nodes_by_addr
+                                    dict.
         :return: A CFGNode if there is any that satisfies given conditions, or None otherwise
         """
 
         # fastpath: directly look in the nodes list
-        if not anyaddr and self._nodes_by_addr and \
-                addr in self._nodes_by_addr and self._nodes_by_addr[addr]:
-            return self._nodes_by_addr[addr][0]
+        if not anyaddr:
+            try:
+                return self._nodes_by_addr[addr][0]
+            except (KeyError, IndexError):
+                pass
+
+        if force_fastpath:
+            return None
 
         # slower path
         #if self._node_lookup_index is not None:
@@ -719,19 +729,20 @@ class CFGBase(Analysis):
 
         return False
 
-    def _executable_memory_regions(self, binary=None, force_segment=False):
+    def _executable_memory_regions(self, objects=None, force_segment=False):
         """
         Get all executable memory regions from the binaries
 
-        :param binary: Binary object to collect regions from. If None, regions from all project binary objects are used.
+        :param objects: A collection of binary objects to collect regions from. If None, regions from all project
+                        binary objects are used.
         :param bool force_segment: Rely on binary segments instead of sections.
         :return: A sorted list of tuples (beginning_address, end_address)
         """
 
-        if binary is None:
+        if objects is None:
             binaries = self.project.loader.all_objects
         else:
-            binaries = [ binary ]
+            binaries = objects
 
         memory_regions = [ ]
 
@@ -773,7 +784,7 @@ class CFGBase(Analysis):
                 tpl = (b.min_addr, b.max_addr)
                 memory_regions.append(tpl)
 
-            elif isinstance(b, (ExternObject, KernelObject, TLSObject)):
+            elif isinstance(b, self._cle_pseudo_objects):
                 pass
 
             else:
@@ -873,17 +884,18 @@ class CFGBase(Analysis):
         except KeyError:
             return None
 
-    def _fast_memory_load_pointer(self, addr):
+    def _fast_memory_load_pointer(self, addr, size=None):
         """
         Perform a fast memory loading of a pointer.
 
         :param int addr: Address to read from.
+        :param int size: Size of the pointer. Default to machine-word size.
         :return:         A pointer or None if the address does not exist.
         :rtype:          int
         """
 
         try:
-            return self.project.loader.memory.unpack_word(addr)
+            return self.project.loader.memory.unpack_word(addr, size=size)
         except KeyError:
             return None
 
@@ -1691,15 +1703,14 @@ class CFGBase(Analysis):
         :rtype:                             set
         """
 
-        addrs = sorted(functions.keys())
+        addrs = sorted(k for k in functions.keys()
+                       if not self.project.is_hooked(k) and not self.project.simos.is_syscall_addr(k))
         functions_to_remove = set()
         adjusted_cfgnodes = set()
 
         for addr_0, addr_1 in zip(addrs[:-1], addrs[1:]):
 
             if addr_1 in predetermined_function_addrs:
-                continue
-            if self.project.is_hooked(addr_0) or self.project.is_hooked(addr_1):
                 continue
 
             func_0 = functions[addr_0]
@@ -1725,15 +1736,15 @@ class CFGBase(Analysis):
                 if target_addr != addr_1:
                     continue
 
-                # Are func_0 adjacent to func_1?
-                if block.addr + block.size != addr_1:
-                    continue
-
-                l.debug("Merging function %#x into %#x.", addr_1, addr_0)
-
-                # Merge block addr_0 and block addr_1
                 cfgnode_0 = self.get_any_node(addr_0)
                 cfgnode_1 = self.get_any_node(addr_1)
+
+                # Are func_0 adjacent to func_1?
+                if cfgnode_0.addr + cfgnode_0.size != addr_1:
+                    continue
+
+                # Merge block addr_0 and block addr_1
+                l.debug("Merging function %#x into %#x.", addr_1, addr_0)
                 self._merge_cfgnodes(cfgnode_0, cfgnode_1)
                 adjusted_cfgnodes.add(cfgnode_0)
                 adjusted_cfgnodes.add(cfgnode_1)
@@ -1961,7 +1972,7 @@ class CFGBase(Analysis):
             # For now, assume UnresolvedTarget returns if we're calling to it
 
             # If the function doesn't return, don't add a fakeret!
-            if not all_edges or (dst_function.returning is False and not dst_function.name == b'UnresolvableTarget'):
+            if not all_edges or (dst_function.returning is False and not dst_function.name == 'UnresolvableCallTarget'):
                 fakeret_node = None
             else:
                 fakeret_node = self._one_fakeret_node(all_edges)
@@ -2084,10 +2095,8 @@ class CFGBase(Analysis):
                         break
             # We may have since figured out that the called function doesn't ret.
             # It's important to assume that all unresolved targets do return
-            # FIXME: Remove the last check after we split UnresolvableTarget into UnresolvableJump and UnresolvableCall.
             if called_function is not None and \
-                    called_function.returning is False and \
-                    (not called_function.is_simprocedure or called_function.name not in ('UnresolvableTarget',)):
+                    called_function.returning is False:
                 return
 
             to_outside = not target_function is src_function
@@ -2302,7 +2311,7 @@ class CFGBase(Analysis):
         Resolve all unresolved indirect jumps found in previous scanning.
 
         Currently we support resolving the following types of indirect jumps:
-        - Ijk_Call (disabled now): indirect calls where the function address is passed in from a proceeding basic block
+        - Ijk_Call: indirect calls where the function address is passed in from a proceeding basic block
         - Ijk_Boring: jump tables
         - For an up-to-date list, see analyses/cfg/indirect_jump_resolvers
 

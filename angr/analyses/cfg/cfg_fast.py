@@ -16,7 +16,7 @@ from .memory_data import MemoryData
 from .cfg_arch_options import CFGArchOptions
 from .cfg_base import CFGBase
 from .cfg_node import CFGNode
-from ..forward_analysis import ForwardAnalysis
+from ..forward_analysis import ForwardAnalysis, AngrSkipJobNotice
 from ... import sim_options as o
 from ...errors import (AngrCFGError, SimEngineError, SimMemoryError, SimTranslationError, SimValueError,
                        AngrUnsupportedSyscallError
@@ -303,7 +303,7 @@ class SegmentList:
         old_sort = ""
         for segment in self._list:
             if segment.start <= old_end and segment.sort == old_sort:
-                raise Exception("Error in SegmentList: blocks are not merged")
+                raise AngrCFGError("Error in SegmentList: blocks are not merged")
             # old_start = start
             old_end = segment.end
             old_sort = segment.sort
@@ -643,7 +643,7 @@ class FunctionTransitionEdge(FunctionEdge):
         to_outside = self.to_outside
         if not to_outside:
             # is it jumping to outside? Maybe we are seeing more functions now.
-            dst_node = cfg.get_any_node(self.dst_addr)
+            dst_node = cfg.get_any_node(self.dst_addr, force_fastpath=True)
             if dst_node is not None and dst_node.function_address != self.src_func_addr:
                 to_outside = True
         return cfg._function_add_transition_edge(
@@ -828,6 +828,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
     def __init__(self,
                  binary=None,
+                 objects=None,
                  regions=None,
                  pickle_intermediate_results=False,
                  symbols=True,
@@ -856,6 +857,8 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                  ):
         """
         :param binary:                  The binary to recover CFG on. By default the main binary is used.
+        :param objects:                 A list of objects to recover the CFG on. By default it will recover the CFG of
+                                        all loaded objects.
         :param iterable regions:        A list of tuples in the form of (start address, end address) describing memory
                                         regions that the CFG should cover.
         :param bool pickle_intermediate_results: If we want to store the intermediate results or not.
@@ -917,8 +920,9 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         )
 
         # necessary warnings
+        regions_not_specified = regions is None and binary is None and not objects
         if self.project.loader._auto_load_libs is True and end is None and len(self.project.loader.all_objects) > 3 \
-                and regions is None:
+                and regions_not_specified:
             l.warning('"auto_load_libs" is enabled. With libraries loaded in project, CFGFast will cover libraries, '
                       'which may take significantly more time than expected. You may reload the binary with '
                       '"auto_load_libs" disabled, or specify "regions" to limit the scope of CFG recovery.'
@@ -933,9 +937,12 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
             else:
                 l.warning('"regions", "start", and "end" are all specified. Ignoring "start" and "end".')
 
-        regions = regions if regions is not None else self._executable_memory_regions(binary=None,
+        if binary is not None and not objects:
+            objects = [ binary ]
+        regions = regions if regions is not None else self._executable_memory_regions(objects=objects,
                                                                                       force_segment=force_segment
                                                                                       )
+
         if exclude_sparse_regions:
             new_regions = [ ]
             for start_, end_ in regions:
@@ -1391,6 +1398,14 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         # a new entry is picked. Deregister it
         self._deregister_analysis_job(job.func_addr, job)
 
+        if not self._inside_regions(job.addr):
+            obj = self.project.loader.find_object_containing(job.addr)
+            if obj is not None and isinstance(obj, self._cle_pseudo_objects):
+                pass
+            else:
+                # it's outside permitted regions. skip.
+                raise AngrSkipJobNotice()
+
         # Do not calculate progress if the user doesn't care about the progress at all
         if self._show_progressbar or self._progress_callback:
             max_percentage_stage_1 = 50.0
@@ -1484,6 +1499,13 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                 self._insert_job(job)
                 return
 
+        # Try to see if there is any indirect jump left to be resolved
+        if self._resolve_indirect_jumps and self._indirect_jumps_to_resolve:
+            self._process_unresolved_indirect_jumps()
+
+            if self._job_info_queue:
+                return
+
         if self._use_function_prologues and self._remaining_function_prologue_addrs:
             while self._remaining_function_prologue_addrs:
                 prolog_addr = self._remaining_function_prologue_addrs[0]
@@ -1494,13 +1516,6 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                 job = CFGJob(prolog_addr, prolog_addr, 'Ijk_Boring')
                 self._insert_job(job)
                 self._register_analysis_job(prolog_addr, job)
-                return
-
-        # Try to see if there is any indirect jump left to be resolved
-        if self._resolve_indirect_jumps and self._indirect_jumps_to_resolve:
-            self._process_unresolved_indirect_jumps()
-
-            if self._job_info_queue:
                 return
 
         if self._force_complete_scan:
@@ -1910,7 +1925,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
             elif thunk_kind == 'jmp':
                 pass # ummmmmm not sure about this one
             else:
-                raise Exception("This shouldn't be possible")
+                raise AngrCFGError("This shouldn't be possible")
 
         jobs = [ ]
         is_syscall = jumpkind.startswith("Ijk_Sys")
@@ -2078,7 +2093,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                              if succ.history.jumpkind and succ.history.jumpkind.startswith("Ijk_Sys")), None)
             if succ is None:
                 # For some reason, there is no such successor with a syscall jumpkind
-                target_addr = self._unresolvable_target_addr
+                target_addr = self._unresolvable_call_target_addr
             else:
                 try:
                     syscall_stub = self.project.simos.syscall(succ)
@@ -2086,9 +2101,9 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                         syscall_addr = syscall_stub.addr
                         target_addr = syscall_addr
                     else:
-                        target_addr = self._unresolvable_target_addr
+                        target_addr = self._unresolvable_call_target_addr
                 except AngrUnsupportedSyscallError:
-                    target_addr = self._unresolvable_target_addr
+                    target_addr = self._unresolvable_call_target_addr
 
         new_function_addr = target_addr
         if irsb is None:
@@ -2527,6 +2542,13 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                 # IRSB is owned by plt!
                 return "GOT PLT Entry", pointer_size
 
+        # is it in a section with zero bytes, like .bss?
+        obj = self.project.loader.find_object_containing(data_addr)
+        section = obj.find_section_containing(data_addr)
+        if section is not None and section.only_contains_uninitialized_data:
+            # Nothing much you can do
+            return None, None
+
         pointers_count = 0
 
         max_pointer_array_size = min(512 * pointer_size, max_size)
@@ -2697,24 +2719,34 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         :return:    None
         """
 
-        # add a node from this node to the UnresolvableTarget node
+        # add a node from this node to UnresolvableJumpTarget or UnresolvalbeCallTarget node,
+        # depending on its jump kind
         src_node = self._nodes[jump.addr]
-        dst_node = CFGNode(self._unresolvable_target_addr, 0, self,
-                           function_address=self._unresolvable_target_addr,
-                           simprocedure_name='UnresolvableTarget',
-                           block_id=self._unresolvable_target_addr,
+        if jump.jumpkind == 'Ijk_Boring':
+            unresolvable_target_addr = self._unresolvable_jump_target_addr
+            simprocedure_name = 'UnresolvableJumpTarget'
+        elif jump.jumpkind == 'Ijk_Call':
+            unresolvable_target_addr = self._unresolvable_call_target_addr
+            simprocedure_name = 'UnresolvableCallTarget'
+        else:
+            raise AngrCFGError('It should be impossible')
+
+        dst_node = CFGNode(unresolvable_target_addr, 0, self,
+                           function_address=unresolvable_target_addr,
+                           simprocedure_name=simprocedure_name,
+                           block_id=unresolvable_target_addr,
                            )
 
         # add the dst_node to self._nodes
-        if self._unresolvable_target_addr not in self._nodes:
-            self._nodes[self._unresolvable_target_addr] = dst_node
-            self._nodes_by_addr[self._unresolvable_target_addr].append(dst_node)
+        if unresolvable_target_addr not in self._nodes:
+            self._nodes[unresolvable_target_addr] = dst_node
+            self._nodes_by_addr[unresolvable_target_addr].append(dst_node)
 
         self._graph_add_edge(dst_node, src_node, jump.jumpkind, jump.ins_addr, jump.stmt_idx)
         # mark it as a jumpout site for that function
-        self._function_add_transition_edge(self._unresolvable_target_addr, src_node, jump.func_addr,
+        self._function_add_transition_edge(unresolvable_target_addr, src_node, jump.func_addr,
                                            to_outside=True,
-                                           dst_func_addr=self._unresolvable_target_addr,
+                                           dst_func_addr=unresolvable_target_addr,
                                            ins_addr=jump.ins_addr,
                                            stmt_idx=jump.stmt_idx,
                                            )
@@ -2816,7 +2848,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
         a = None  # it always hold the very recent non-removed node
 
-        for i in range(len(sorted_nodes)):
+        for i in range(len(sorted_nodes)):  # pylint:disable=consider-using-enumerate
 
             if a is None:
                 a = sorted_nodes[0]
@@ -2976,13 +3008,15 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         # from node A to node B.
         # this matters in cases where node B is resolved as a special indirect jump entry (like a PLT stub), but (node
         # A + node B) wasn't properly resolved.
-        has_resolved_targets = any([ node_.addr != self._unresolvable_target_addr
+        unresolvable_target_addrs = (self._unresolvable_jump_target_addr, self._unresolvable_call_target_addr)
+
+        has_resolved_targets = any([ node_.addr not in unresolvable_target_addrs
                                      for node_ in self.graph.successors(successor) ]
                                    )
 
         old_out_edges = self.graph.out_edges(node, data=True)
         for _, dst, data in old_out_edges:
-            if (has_resolved_targets and dst.addr != self._unresolvable_target_addr) or \
+            if (has_resolved_targets and dst.addr not in unresolvable_target_addrs) or \
                     not has_resolved_targets:
                 self.graph.add_edge(successor, dst, **data)
 

@@ -211,24 +211,21 @@ class SimSlicer(object):
 
         return in_slice
 
-    def _backward_handler_stmt_Exit(self, stmt, state):
-        # HACK: TODO: WARNING: This might not be what we want.
-        # You may end up with bigger slices than you expect
-        # However, since a conditional exit reflects your ability to continue
-        # to follow the slice, all conditional exits must be included
-        # (until we find a more clever way to exclude them)
-        self._backward_handler_expr(stmt.guard, state)
-        return True
+    #def _backward_handler_stmt_Exit(self, stmt, state):
+    #    # HACK: TODO: WARNING: This might not be what we want.
+    #    # You may end up with bigger slices than you expect
+    #    # However, since a conditional exit reflects your ability to continue
+    #    # to follow the slice, all conditional exits must be included
+    #    # (until we find a more clever way to exclude them)
+    #    self._backward_handler_expr(stmt.guard, state)
+    #    return True
+
     def _backward_handler_stmt_WrTmp(self, stmt, state):
         tmp = stmt.tmp
-
         if tmp not in state.temps:
             return False
-
         state.temps.remove(tmp)
-
         self._backward_handler_expr(stmt.data, state)
-
         return True
 
     def _backward_handler_stmt_Put(self, stmt : pyvex.IRStmt.Put, state):

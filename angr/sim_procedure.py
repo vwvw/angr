@@ -8,8 +8,6 @@ l = logging.getLogger(name=__name__)
 
 from archinfo.arch_soot import SootAddressDescriptor
 
-from archinfo.arch_soot import SootAddressDescriptor
-
 symbolic_count = itertools.count()
 
 

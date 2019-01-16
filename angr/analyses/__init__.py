@@ -26,3 +26,4 @@ from .callee_cleanup_finder import CalleeCleanupFinder
 from .reaching_definitions import ReachingDefinitionAnalysis
 from .calling_convention import CallingConventionAnalysis
 from .code_tagging import CodeTagging
+from .soot_class_hierarchy import SootClassHierarchy

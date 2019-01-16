@@ -150,7 +150,8 @@ class CFGNode(object):
         s = "<CFGNode "
         if self.name is not None:
             s += self.name + " "
-        s += hex(self.addr)
+        elif not isinstance(self.addr, SootAddressDescriptor):
+            s += hex(self.addr)
         if self.size is not None:
             s += "[%d]" % self.size
         s += ">"

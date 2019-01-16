@@ -46,3 +46,4 @@ from .thisref import SimSootExpr_ThisRef
 from .paramref import SimSootExpr_ParamRef, SimSootExpr_ArrayRef
 from .arrayref import SimSootExpr_ArrayRef
 from .unsupported import SimSootExpr_Unsupported
+from .instanceOf import SimSootExpr_InstanceOf

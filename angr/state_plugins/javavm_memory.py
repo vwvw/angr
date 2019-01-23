@@ -15,9 +15,10 @@ from ..storage.memory import SimMemory
 from .keyvalue_memory import SimKeyValueMemory
 from .plugin import SimStatePlugin
 
+l = logging.getLogger(name=__name__)
+
 MAX_ARRAY_SIZE = 1000   # FIXME arbitrarily chosen limit
 
-l = logging.getLogger(name=__name__)
 
 
 class SimJavaVmMemory(SimMemory):

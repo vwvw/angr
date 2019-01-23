@@ -108,7 +108,7 @@ class FunctionManager(KnowledgeBasePlugin, collections.Mapping):
         dst_func._register_nodes(True, node)
         self.block_map[node.addr] = node
 
-    def _add_call_to(self, function_addr, from_node, to_addr, retn_node=None, syscall=None, stmt_idx=None, ins_addr=None,
+    def _add_call_to(self, function_addr, from_node, to_addr, retn_node, syscall=None, stmt_idx=None, ins_addr=None,
                      return_to_outside=False):
 
         if isinstance(from_node, self.address_types):
@@ -158,9 +158,9 @@ class FunctionManager(KnowledgeBasePlugin, collections.Mapping):
                 self.callgraph.add_edge(function_addr, to_function_addr, **edge_data)
 
     def _remove_fakeret(self, function_addr, from_node, to_node):
-        if type(from_node) is int:  # pylint: disable=unidiomatic-typecheck
+        if isinstance(from_node, self.address_types):  # pylint: disable=unidiomatic-typecheck
             from_node = self._kb._project.factory.snippet(from_node)
-        if type(to_node) is int:  # pylint: disable=unidiomatic-typecheck
+        if isinstance(to_node, self.address_types):  # pylint: disable=unidiomatic-typecheck
             to_node = self._kb._project.factory.snippet(to_node)
         self._function_map[function_addr]._remove_fakeret(from_node, to_node)
 
@@ -231,7 +231,7 @@ class FunctionManager(KnowledgeBasePlugin, collections.Mapping):
         elif type(k) is str:
             f = self.function(name=k)
         else:
-            raise ValueError("FunctionManager.__getitem__ deos not support keys of type %s" % type(k))
+            raise ValueError("FunctionManager.__getitem__ does not support keys of type %s" % type(k))
 
         if f is None:
             raise KeyError(k)
@@ -295,7 +295,7 @@ class FunctionManager(KnowledgeBasePlugin, collections.Mapping):
 
         try:
             next_addr = self._function_map.ceiling_addr(addr)
-            return self._function_map.get(next_addr)
+            return self._function_map[next_addr]
 
         except KeyError:
             return None
@@ -327,7 +327,7 @@ class FunctionManager(KnowledgeBasePlugin, collections.Mapping):
         :param bool create: Whether to create the function or not if the function does not exist.
         :param bool syscall: True to create the function as a syscall, False otherwise.
         :param bool or None plt: True to find the PLT stub, False to find a non-PLT stub, None to disable this
-                                 restriction.
+                                                         restriction.
         :return: The Function instance, or None if the function is not found and create is False.
         :rtype: Function or None
         """
@@ -357,5 +357,6 @@ class FunctionManager(KnowledgeBasePlugin, collections.Mapping):
         for func_addr, func in self._function_map.items():
             filename = "%s%#08x.png" % (prefix, func_addr)
             func.dbg_draw(filename)
+
 
 KnowledgeBasePlugin.register_default('functions', FunctionManager)

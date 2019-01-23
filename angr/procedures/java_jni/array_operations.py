@@ -6,6 +6,8 @@ from ...engines.soot.values import SimSootValue_ArrayRef
 
 l = logging.getLogger(name=__name__)
 
+# pylint: disable=arguments-differ,unused-argument
+
 #
 # GetArrayLength
 #
@@ -149,6 +151,7 @@ class GetArrayElements(JNISimProcedure):
 class ReleaseArrayElements(JNISimProcedure):
 
     return_ty = 'void'
+
     JNI_COMMIT = 1
     JNI_ABORT = 2
 
@@ -262,6 +265,7 @@ class SetArrayRegion(JNISimProcedure):
     return_ty = 'void'
 
     def run(self, ptr_env, array_, start_idx_, length_, ptr_buf):
+
         array = self.state.jni_references.lookup(array_)
         start_idx = self._normalize_array_idx(start_idx_)
         length = self._normalize_array_idx(length_)
@@ -269,6 +273,11 @@ class SetArrayRegion(JNISimProcedure):
         # check if the range (induced by start_idx and length) is valid
         if not GetArrayRegion._check_region_bounds(array, start_idx, length, self.state):
             return
+
+        # concretize length (TODO handle symbolic length)
+        no_of_elements = GetArrayRegion._concretize_region_length(length, self.state)
+
+        # load elements from native memory
         elements = self._load_from_native_memory(addr=ptr_buf,
                                                  data_type=array.element_type,
                                                  no_of_elements=no_of_elements)

@@ -13,6 +13,7 @@ from ..errors import SimMemoryAddressError, SimUnsatError
 from ..sim_state import SimState
 from ..storage.memory import SimMemory
 from .keyvalue_memory import SimKeyValueMemory
+from .plugin import SimStatePlugin
 
 MAX_ARRAY_SIZE = 1000   # FIXME arbitrarily chosen limit
 
@@ -40,10 +41,6 @@ class SimJavaVmMemory(SimMemory):
         self.load_strategies = load_strategies if load_strategies else []
         self.store_strategies = store_strategies if store_strategies else []
 
-        # concretizing strategies
-        self.load_strategies = load_strategies if load_strategies else []
-        self.store_strategies = store_strategies if store_strategies else []
-
     @staticmethod
     def get_new_uuid():
         """
@@ -64,15 +61,12 @@ class SimJavaVmMemory(SimMemory):
             cstack = self._stack[-1+(-1*frame)]
             cstack.store(addr.id, data, type_=addr.type)
 
-        elif type(addr) is SimSootValue_ParamRef:
-            cstack = self._stack[-1+(-1*frame)]
-            cstack.store(addr.id, data, type_=addr.type)
-
         elif type(addr) is SimSootValue_ArrayRef:
             self.store_array_element(addr.base, addr.index, data)
 
         elif type(addr) is SimSootValue_StaticFieldRef:
             self.vm_static_table.store(addr.id, data, type_=addr.type)
+
         elif type(addr) is SimSootValue_InstanceFieldRef:
             self.heap.store(addr.id, data, type_=addr.type)
 
@@ -109,19 +103,6 @@ class SimJavaVmMemory(SimMemory):
                 # initialize field
                 value = self.state.project.simos.get_default_value_by_type(addr.type, state=self.state)
                 l.debug("Initializing field %s with %s.", addr, value)
-                self.store(addr, value)
-            return value
-
-        elif type(addr) is SimSootValue_StringRef:
-            return self.heap.load(addr.id, none_if_missing=none_if_missing)
-
-        elif type(addr) is SimSootValue_InstanceFieldRef:
-            value = self.heap.load(addr.id, none_if_missing=True)
-            if value is None:
-                # initialize field
-                value = self.state.project.simos.get_default_value_by_type(addr.type)
-                l.debug("Initializing field {field_ref} with {init_value}."
-                        "".format(field_ref=addr, init_value=value))
                 self.store(addr, value)
             return value
 

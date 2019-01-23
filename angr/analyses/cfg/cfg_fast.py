@@ -1000,6 +1000,8 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
         self._data_type_guessing_handlers = [ ] if data_type_guessing_handlers is None else data_type_guessing_handlers
 
+        self._cfb = cfb
+
         l.debug("CFG recovery covers %d regions:", len(self._regions))
         for start_addr in self._regions:
             l.debug("... %#x - %#x", start_addr, self._regions[start_addr])
@@ -1330,7 +1332,10 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
     def _job_key(self, job):
         return job.addr
 
-    def _pre_analysis_common(self):
+    def _pre_analysis(self):
+
+        # Call _initialize_cfg() before self.functions is used.
+        self._initialize_cfg()
 
         # Scan for __x86_return_thunk and friends
         self._known_thunks = self._find_thunks()

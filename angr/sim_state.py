@@ -76,7 +76,7 @@ class SimState(PluginHub, ana.Storable):
         else:
             self._arch = arch if arch is not None else project.arch.copy() if project is not None else None
             if type(self._arch) is str:
-                self._arch = arch_from_id(self._arch)
+                self._arch = archinfo.arch_from_id(self._arch)
 
         # the options
         if options is None:
@@ -374,52 +374,6 @@ class SimState(PluginHub, ana.Storable):
             plugin.set_strongref_state(self)
         if not inhibit_init:
             plugin.init_state()
-
-    #
-    # Java support
-    #
-
-    @property
-    def _is_java_project(self):
-        """
-        Indicates if the project's main binary is a Java Archive.
-        """
-        return self.project and isinstance(self.project.arch, ArchSoot)
-
-    @property
-    def _is_java_jni_project(self):
-        """
-        Indicates if the project's main binary is a Java Archive, which
-        interacts during its execution with native libraries (via JNI).
-        """
-        return self.project and isinstance(self.project.arch, ArchSoot) and \
-               self.project.simos.is_javavm_with_jni_support
-
-    @property
-    def javavm_memory(self):
-        """
-        In case of an JavaVM with JNI support, a state can store the memory
-        plugin twice; one for the native and one for the java view of the state.
-
-        :return: The JavaVM view of the memory plugin.
-        """
-        if self._is_java_jni_project:
-            return self.get_plugin('memory_soot')
-        else:
-            return self.get_plugin('memory')
-
-    @property
-    def javavm_registers(self):
-        """
-        In case of an JavaVM with JNI support, a state can store the registers
-        plugin twice; one for the native and one for the java view of the state.
-
-        :return: The JavaVM view of the registers plugin.
-        """
-        if self._is_java_jni_project:
-            return self.get_plugin('registers_soot')
-        else:
-            return self.get_plugin('registers')
 
     #
     # Java support

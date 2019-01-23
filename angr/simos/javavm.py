@@ -19,23 +19,6 @@ from ..procedures.java_jni import jni_functions
 from ..sim_state import SimState
 from ..sim_type import SimTypeFunction, SimTypeReg
 from .simos import SimOS
-from ..engines.soot.values.arrayref import SimSootValue_ArrayRef
-from ..engines.soot.values.local import SimSootValue_Local
-from ..engines.soot.values.thisref import SimSootValue_ThisRef
-from ..engines.soot.values.instancefieldref import SimSootValue_InstanceFieldRef
-from ..calling_conventions import DEFAULT_CC, SimCCSoot
-from ..engines.soot import SimEngineSoot
-from ..engines.soot.expressions import SimSootExpr_NewArray
-from ..engines.soot.values import (SimSootValue_ArrayBaseRef,
-                                   SimSootValue_ArrayRef,
-                                   SimSootValue_InstanceFieldRef,
-                                   SimSootValue_Local, SimSootValue_StringRef,
-                                   SimSootValue_ThisRef)
-from ..errors import AngrSimOSError
-from ..procedures.java_jni import jni_functions
-from ..sim_state import SimState
-from ..sim_type import SimTypeFunction, SimTypeReg
-from .simos import SimOS
 
 l = logging.getLogger(name=__name__)
 

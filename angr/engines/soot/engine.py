@@ -286,38 +286,6 @@ class SimEngineSoot(SimEngine):
             param_ref = SimSootValue_ParamRef(idx, arg.type)
             state.javavm_memory.store(param_ref, arg.value)
 
-    # https://www.artima.com/insidejvm/ed2/jvm8.html
-    def _setup_args(self, state):
-        fixed_args = self._get_args(state)
-        # Push parameter on new frame
-        if hasattr(state.scratch.invoke_expr, "base"):
-            this_ref, this_type = fixed_args.next()
-            local_name = "this"
-            local = SimSootValue_Local(local_name, this_type)
-            state.memory.store(local, this_ref)
-
-        param_idx = 0
-        for (value, value_type) in fixed_args:
-            local_name = "param_%d" % param_idx
-            param_idx += 1
-            local = SimSootValue_Local(local_name, value_type)
-            state.memory.store(local, value)
-
-    def _get_args(self, state):
-        ie = state.scratch.invoke_expr
-        all_args = list()
-        if hasattr(ie, "base"):
-            all_args.append(ie.base)
-        all_args += ie.args
-        for arg in all_args:
-            arg_cls_name = arg.__class__.__name__
-            if "Constant" not in arg_cls_name:
-                arg_value = state.memory.load(translate_value(arg, state))
-            else:
-                arg_value = translate_expr(arg, state).expr
-            args += [ (arg_value, arg.type) ]
-        return args
-
     @staticmethod
     def prepare_return_state(state, ret_value=None):
         # pop callstack
@@ -402,9 +370,6 @@ class SimEngineSoot(SimEngine):
 
         else:
             ret_value = None
-
-        # teardown return state
-        SimEngineSoot.prepare_return_state(ret_state, ret_value)
 
         # teardown return state
         SimEngineSoot.prepare_return_state(ret_state, ret_value)

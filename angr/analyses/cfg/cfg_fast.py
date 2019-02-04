@@ -1368,7 +1368,6 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         return job.addr
 
     def _pre_analysis(self):
-        
         # Call _initialize_cfg() before self.functions is used.
         self._initialize_cfg()
 
@@ -1923,24 +1922,6 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                                          )
 
         return entries
-
-    def _create_entries_filter_target(self, target):
-        """
-
-        :param target:
-        :return:
-        """
-
-        if type(target) is pyvex.IRExpr.Const:  # pylint: disable=unidiomatic-typecheck
-            target_addr = target.con.value
-        elif type(target) in (pyvex.IRConst.U32, pyvex.IRConst.U64):  # pylint: disable=unidiomatic-typecheck
-            target_addr = target.value
-        elif type(target) is int:  # pylint: disable=unidiomatic-typecheck
-            target_addr = target
-        else:
-            target_addr = None
-
-        return target_addr
 
     def _create_jobs(self, target, jumpkind, current_function_addr, irsb, addr, cfg_node, ins_addr, stmt_idx):
 

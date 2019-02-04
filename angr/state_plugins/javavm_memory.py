@@ -20,7 +20,6 @@ l = logging.getLogger(name=__name__)
 MAX_ARRAY_SIZE = 1000   # FIXME arbitrarily chosen limit
 
 
-
 class SimJavaVmMemory(SimMemory):
     def __init__(self, memory_id="mem", stack=None, heap=None, vm_static_table=None,
                  load_strategies=None, store_strategies=None):

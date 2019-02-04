@@ -7,9 +7,9 @@ from ...errors import SimEngineError
 from ..plugin import KnowledgeBasePlugin
 
 from .function import Function
-from .soot_function import  SootFunction
+from .soot_function import SootFunction
 
-from archinfo.arch_soot import  SootMethodDescriptor
+from archinfo.arch_soot import SootMethodDescriptor
 
 l = logging.getLogger(name=__name__)
 
@@ -327,7 +327,7 @@ class FunctionManager(KnowledgeBasePlugin, collections.Mapping):
         :param bool create: Whether to create the function or not if the function does not exist.
         :param bool syscall: True to create the function as a syscall, False otherwise.
         :param bool or None plt: True to find the PLT stub, False to find a non-PLT stub, None to disable this
-                                                         restriction.
+                                 restriction.
         :return: The Function instance, or None if the function is not found and create is False.
         :rtype: Function or None
         """

@@ -9,8 +9,8 @@ import angr # type annotations; pylint:disable=unused-import
 import claripy
 import ana
 import archinfo
-
 from archinfo.arch_soot import ArchSoot, SootAddressDescriptor
+
 from .misc.plugins import PluginHub, PluginPreset
 from .sim_state_options import SimStateOptions
 

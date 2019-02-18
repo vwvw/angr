@@ -81,7 +81,6 @@ class CFBlanket(Analysis):
     def __init__(self, cfg=None):
         self._blanket = SortedDict()
 
-        self._ffi = cffi.FFI()
         self._regions = [ ]
 
         self._init_regions()
@@ -241,13 +240,13 @@ class CFBlanket(Analysis):
                         if not section.memsize or not section.vaddr:
                             continue
                         min_addr, max_addr = section.min_addr, section.max_addr
-                        self._mark_unknowns_core(min_addr, max_addr, obj=obj, section=section)
+                        self._mark_unknowns_core(min_addr, max_addr + 1, obj=obj, section=section)
                 elif obj.segments:
                     for segment in obj.segments:
                         if not segment.memsize:
                             continue
                         min_addr, max_addr = segment.min_addr, segment.max_addr
-                        self._mark_unknowns_core(min_addr, max_addr, obj=obj, segment=segment)
+                        self._mark_unknowns_core(min_addr, max_addr + 1, obj=obj, segment=segment)
                 else:
                     # is it empty?
                     _l.warning("Empty ELF object %s.", repr(obj))
@@ -257,15 +256,17 @@ class CFBlanket(Analysis):
                         if not section.memsize:
                             continue
                         min_addr, max_addr = section.min_addr, section.max_addr
-                        self._mark_unknowns_core(min_addr, max_addr, obj=obj, section=section)
+                        self._mark_unknowns_core(min_addr, max_addr + 1, obj=obj, section=section)
                 else:
                     # is it empty?
                     _l.warning("Empty PE object %s.", repr(obj))
             else:
                 min_addr, max_addr = obj.min_addr, obj.max_addr
-                self._mark_unknowns_core(min_addr, max_addr, obj=obj)
+                self._mark_unknowns_core(min_addr, max_addr + 1, obj=obj)
 
     def _mark_unknowns_core(self, min_addr, max_addr, obj=None, segment=None, section=None):
+
+        # The region should be [min_addr, max_addr)
 
         try:
             addr = self.floor_addr(min_addr)

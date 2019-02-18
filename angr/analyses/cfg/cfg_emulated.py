@@ -232,6 +232,7 @@ class CFGEmulated(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-metho
         self._max_steps = max_steps
         self._state_add_options = state_add_options if state_add_options is not None else set()
         self._state_remove_options = state_remove_options if state_remove_options is not None else set()
+        self._state_add_options.update([o.SYMBOL_FILL_UNCONSTRAINED_MEMORY, o.SYMBOL_FILL_UNCONSTRAINED_REGISTERS])
 
         # add the track_memory_option if the enable function hint flag is set
         if self._enable_function_hints and o.TRACK_MEMORY_ACTIONS not in self._state_add_options:
@@ -1917,7 +1918,6 @@ class CFGEmulated(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-metho
                 # TODO: Is it really OK?
                 func_addr = self._block_id_addr(node_key)
 
-            is_syscall = node_key.jump_type == 'syscall'
             is_thumb = isinstance(self.project.arch, ArchARM) and addr % 2 == 1
 
             pt = CFGENode(self._block_id_addr(node_key),
@@ -1928,7 +1928,6 @@ class CFGEmulated(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-metho
                           simprocedure_name="PathTerminator",
                           function_address=func_addr,
                           callstack_key=self._block_id_callstack_key(node_key),
-                          is_syscall=is_syscall,
                           thumb=is_thumb
                           )
             if self._keep_state:
@@ -3034,7 +3033,6 @@ class CFGEmulated(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-metho
 
         # Determine if this is a SimProcedure, and further, if this is a syscall
         syscall = None
-        is_syscall = False
         if sim_successors.sort == 'SimProcedure':
             is_simprocedure = True
             if sa['is_syscall'] is True:
@@ -3060,7 +3058,6 @@ class CFGEmulated(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-metho
                                 simprocedure_name=simproc_name,
                                 syscall_name=syscall,
                                 no_ret=no_ret,
-                                is_syscall=is_syscall,
                                 syscall=syscall,
                                 function_address=sim_successors.addr,
                                 block_id=block_id,
@@ -3075,7 +3072,6 @@ class CFGEmulated(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-metho
                                 self,
                                 callstack=call_stack,
                                 input_state=None,
-                                is_syscall=is_syscall,
                                 syscall=syscall,
                                 function_address=func_addr,
                                 block_id=block_id,

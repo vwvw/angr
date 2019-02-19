@@ -148,10 +148,6 @@ class SimProcedure:
             # get the arguments
             r = inst._dispatch(state, arguments=arguments)
 
-
-
-        return inst
-
         return inst
 
     def _dispatch(self, state, arguments=None):

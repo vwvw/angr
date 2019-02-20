@@ -15,7 +15,11 @@ class SimIRStmt_Dirty(SimIRStmt):
     def _execute(self):
         exprs = self._translate_exprs(self.stmt.args)
 
-        if hasattr(dirty, self.stmt.cee.name):
+        func = self.state.trace_replay_overrides.override_for_dirtyhelper(self.stmt.cee.name)
+        if func is None:
+            func = getattr(dirty, self.stmt.cee.name, None)
+
+        if func is not None:
             s_args = [ex.expr for ex in exprs]
 
             if o.ACTION_DEPS in self.state.options:
@@ -28,8 +32,6 @@ class SimIRStmt_Dirty(SimIRStmt):
             else:
                 reg_deps = None
                 tmp_deps = None
-
-            func = getattr(dirty, self.stmt.cee.name)
 
             retval, retval_constraints = func(self.state, *s_args)
 

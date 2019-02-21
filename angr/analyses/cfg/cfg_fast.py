@@ -3,7 +3,7 @@ import logging
 import math
 import re
 import string
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 from sortedcontainers import SortedDict
 
@@ -512,11 +512,13 @@ class PendingJobs:
     A collection of pending jobs during CFG recovery.
     """
     def __init__(self, functions, deregister_job_callback):
-        self._jobs = defaultdict(list)  # A mapping between function addresses and lists of pending jobs
+        self._jobs = OrderedDict()  # A mapping between function addresses and lists of pending jobs
         self._functions = functions
         self._deregister_job_callback = deregister_job_callback
 
         self._returning_functions = set()
+        self._updated_functions = set()  # Addresses of functions whose returning status have changed between two
+                                         # consecutive calls to cleanup().
         self._job_count = 0
 
     def __len__(self):
@@ -529,7 +531,7 @@ class PendingJobs:
     def _pop_job(self, func_addr):
 
         jobs = self._jobs[func_addr]
-        j = jobs.pop(0)
+        j = jobs.pop(-1)
         if not jobs:
             del self._jobs[func_addr]
         self._job_count -= 1
@@ -537,6 +539,8 @@ class PendingJobs:
 
     def add_job(self, job):
         func_addr = job.returning_source
+        if func_addr not in self._jobs:
+            self._jobs[func_addr] = [ ]
         self._jobs[func_addr].append(job)
         self._job_count += 1
 
@@ -549,16 +553,17 @@ class PendingJobs:
 
         :param bool returning: Only pop a pending job if the corresponding function returns.
         :return: A pending job if we can find one, or None if we cannot find any that satisfies the requirement.
+        :rtype: angr.analyses.cfg.cfg_fast.CFGJob
         """
 
         if not self:
             return None
 
         if not returning:
-            return self._pop_job(next(iter(self._jobs.keys())))
+            return self._pop_job(next(reversed(self._jobs.keys())))
 
         # Prioritize returning functions
-        for func_addr in self._jobs:
+        for func_addr in reversed(self._jobs.keys()):
             if func_addr not in self._returning_functions:
                 continue
             return self._pop_job(func_addr)
@@ -577,9 +582,11 @@ class PendingJobs:
 
         pending_exits_to_remove = defaultdict(list)
 
-        for func_addr, jobs in self._jobs.items():
+        for func_addr in self._updated_functions:
+            if func_addr not in self._jobs:
+                continue
+            jobs = self._jobs[func_addr]
             for i, pe in enumerate(jobs):
-
                 if pe.returning_source is None:
                     # The original call failed. This pending exit must be followed.
                     continue
@@ -606,6 +613,8 @@ class PendingJobs:
             if not jobs:
                 del self._jobs[func_addr]
 
+        self.clear_updated_functions()
+
     def add_returning_function(self, func_addr):
         """
         Mark a function as returning.
@@ -615,6 +624,26 @@ class PendingJobs:
         """
 
         self._returning_functions.add(func_addr)
+        self._updated_functions.add(func_addr)
+
+    def add_nonreturning_function(self, func_addr):
+        """
+        Mark a function as not returning.
+
+        :param int func_addr:   Address of the function that does not return.
+        :return:                None
+        """
+
+        self._updated_functions.add(func_addr)
+
+    def clear_updated_functions(self):
+        """
+        Clear the updated_functions set.
+
+        :return:    None
+        """
+
+        self._updated_functions.clear()
 
 #
 # Descriptors of edges in individual function graphs
@@ -1549,7 +1578,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         # Revisit all edges and rebuild all functions to correctly handle returning/non-returning functions.
         self.make_functions()
 
-        self._analyze_all_function_features()
+        self._analyze_all_function_features(all_funcs_completed=True)
 
         # Scan all functions, and make sure all fake ret edges are either confirmed or removed
         for f in self.functions.values():
@@ -1953,7 +1982,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                     self._function_exits[current_function_addr].add(addr)
                     self._function_add_return_site(addr, current_function_addr)
                     self.functions[current_function_addr].returning = True
-                    self._add_returning_function(current_function_addr)
+                    self._pending_jobs.add_returning_function(current_function_addr)
 
                 cfg_node.has_return = True
 
@@ -3071,7 +3100,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         #if node.addr in self.kb.functions.callgraph:
         #    self.kb.functions.callgraph.remove_node(node.addr)
 
-    def _analyze_all_function_features(self):
+    def _analyze_all_function_features(self, all_funcs_completed=False):
         """
         Iteratively analyze all changed functions, update their returning attribute, until a fix-point is reached (i.e.
         no new returning/not-returning functions are found).
@@ -3080,7 +3109,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
         """
 
         while True:
-            new_changes = self._iteratively_analyze_function_features()
+            new_changes = self._iteratively_analyze_function_features(all_funcs_completed=all_funcs_completed)
             new_returning_functions = new_changes['functions_return']
             new_not_returning_functions = new_changes['functions_do_not_return']
 
@@ -3088,6 +3117,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                 break
 
             for returning_function in new_returning_functions:
+                self._pending_jobs.add_returning_function(returning_function.addr)
                 if returning_function.addr in self._function_returns:
                     for fr in self._function_returns[returning_function.addr]:
                         # Confirm them all
@@ -3112,24 +3142,22 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
 
                     del self._function_returns[returning_function.addr]
 
-            for not_returning_function in new_not_returning_functions:
-                if not_returning_function.addr in self._function_returns:
-                    for fr in self._function_returns[not_returning_function.addr]:
+            for nonreturning_function in new_not_returning_functions:
+                self._pending_jobs.add_nonreturning_function(nonreturning_function.addr)
+                if nonreturning_function.addr in self._function_returns:
+                    for fr in self._function_returns[nonreturning_function.addr]:
                         # Remove all those FakeRet edges
                         if self.kb.functions.contains_addr(fr.caller_func_addr) and \
                                 self.kb.functions.get_by_addr(fr.caller_func_addr).returning is not True:
                             self._updated_nonreturning_functions.add(fr.caller_func_addr)
 
-                    del self._function_returns[not_returning_function.addr]
+                    del self._function_returns[nonreturning_function.addr]
 
     def _pop_pending_job(self, returning=True):
         return self._pending_jobs.pop_job(returning=returning)
 
     def _clean_pending_exits(self):
         self._pending_jobs.cleanup()
-
-    def _add_returning_function(self, func_addr):
-        self._pending_jobs.add_returning_function(func_addr)
 
     #
     # Graph utils
@@ -3581,6 +3609,7 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                 return addr, current_function_addr, cfg_node, irsb
 
             is_arm_arch = True if self.project.arch.name in ('ARMHF', 'ARMEL', 'ARMCortexM') else False
+            is_x86_x64_arch = self.project.arch.name in ('X86', 'AMD64')
 
             if is_arm_arch:
                 real_addr = addr & (~1)
@@ -3670,14 +3699,28 @@ class CFGFast(ForwardAnalysis, CFGBase):    # pylint: disable=abstract-method
                     irsb_size = 0
                 else:
                     irsb_size = irsb.size
-                nodecode_size = 1
+                # special handling for ud, ud1, and ud2 on x86 and x86-64
+                if is_x86_x64_arch \
+                        and len(irsb_string) >= 2 \
+                        and irsb_string[-2:] in {
+                            b'\x0f\xff',  # ud0
+                            b'\x0f\xb9',  # ud1
+                            b'\x0f\x0b',  # ud2
+                        }:
+                    # ud0, ud1, and ud2 are actually valid instructions.
+                    valid_ins = True
+                    nodecode_size = 2
+                else:
+                    valid_ins = False
+                    nodecode_size = 1
                 self._seg_list.occupy(addr, irsb_size, 'code')
                 self._seg_list.occupy(addr + irsb_size, nodecode_size, 'nodecode')
-                l.error("Decoding error occurred at address %#x of function %#x.",
-                        addr + irsb_size,
-                        current_function_addr
-                        )
-                return None, None, None, None
+                if not valid_ins:
+                    l.error("Decoding error occurred at address %#x of function %#x.",
+                            addr + irsb_size,
+                            current_function_addr
+                            )
+                    return None, None, None, None
 
             is_thumb = False
             # Occupy the block in segment list

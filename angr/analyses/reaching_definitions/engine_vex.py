@@ -19,6 +19,8 @@ class SimEngineRDVEX(SimEngineLightVEX):  # pylint:disable=abstract-method
     def __init__(self, project, current_local_call_depth, maximum_local_call_depth, function_handler=None):
         super(SimEngineRDVEX, self).__init__()
         self.project = project
+        assert current_local_call_depth is not None
+        assert maximum_local_call_depth is not None
         self._current_local_call_depth = current_local_call_depth
         self._maximum_local_call_depth = maximum_local_call_depth
         self._function_handler = function_handler

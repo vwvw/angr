@@ -12,20 +12,23 @@ from ...codenode import HookNode, SootBlockNode
 from .cfg_fast import CFGFast, CFGJob, PendingJobs, FunctionTransitionEdge
 from .cfg_node import CFGNode
 
-l = logging.getLogger('angr.analyses.cfg_fast_soot')
+l = logging.getLogger(name=__name__)
+
+try:
+    from pysoot.sootir.soot_statement import IfStmt, InvokeStmt, GotoStmt, AssignStmt
+    from pysoot.sootir.soot_expr import SootInterfaceInvokeExpr, SootSpecialInvokeExpr, SootStaticInvokeExpr, \
+        SootVirtualInvokeExpr, SootInvokeExpr, SootDynamicInvokeExpr
+    PYSOOT_INSTALLED = True
+except ImportError:
+    PYSOOT_INSTALLED = False
 
 
 class CFGFastSoot(CFGFast):
+
     def __init__(self, **kwargs):
 
-        # Delayed import
-        try:
-            from pysoot.sootir.soot_statement import IfStmt, InvokeStmt, GotoStmt, AssignStmt
-            from pysoot.sootir.soot_expr import SootInterfaceInvokeExpr, SootSpecialInvokeExpr, SootStaticInvokeExpr, \
-                SootVirtualInvokeExpr, SootInvokeExpr, SootDynamicInvokeExpr
-        except ImportError:
-            l.error("Please install PySoot before analyzing Java byte code.")
-            raise
+        if not PYSOOT_INSTALLED:
+            raise ImportError("Please install PySoot before analyzing Java byte code.")
 
         if self.project.arch.name != 'Soot':
             raise AngrCFGError('CFGFastSoot only supports analyzing Soot programs.')
@@ -398,7 +401,7 @@ class CFGFastSoot(CFGFast):
                     self._function_exits[current_function_addr].add(addr)
                     self._function_add_return_site(addr, current_function_addr)
                     self.functions[current_function_addr].returning = True
-                    self._add_returning_function(current_function_addr)
+                    self._pending_jobs.add_returning_function(current_function_addr)
 
                 cfg_node.has_return = True
 
@@ -434,7 +437,7 @@ class CFGFastSoot(CFGFast):
                 jobs += self._create_job_call(addr, soot_block, cfg_node, stmt_idx, stmt_addr, current_function_addr,
                                               target_addr, jumpkind, is_syscall=False
                                               )
-                self._add_returning_function(target.method)
+                self._pending_jobs.add_returning_function(target.method)
 
             else:
                 # TODO: Support more jumpkinds
